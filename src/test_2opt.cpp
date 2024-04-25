@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
         totalCost += eval.DoIt(opt2.GetFlipper());
     }
     printf("iter = %d, avg = %0.3lf\n", max_iter, (double)totalCost / max_iter);
-    ru.Report("TwoOpt");
+    ru.Report("2opt");
 
     return 0;
 }

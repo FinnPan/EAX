@@ -34,7 +34,9 @@ public:
     ~TspLib ();
     bool Init (const char *fileName);
     int GetDim () const { return _dim; }
-    int EdgeLen (int i, int j) const { return (_edgeLen)(_x[i]-_x[j], _y[i]-_y[j]); }
+    int EdgeLen (int i, int j) const {
+        return (_edgeLen)(_x[i]-_x[j], _y[i]-_y[j]);
+    }
 private:
     static int EdgeLen_euclid (double xd, double yd);
     static int EdgeLen_att (double xd, double yd);
@@ -70,25 +72,28 @@ public:
     explicit Flipper (int count, const int *cyc);
     ~Flipper ();
     void SetCycle (int count, const int *cyc);
-    void GetCycle (int *x) const;
-    /* returns the successor to x in the current cycle */
+    void GetCycle (int *cyc) const;
+    /* returns the successor of x in the current cycle */
     int Next (int x) const;
     /* returns the predecessor of x in the current cycle */
     int Prev (int x) const;
-    /* returns 1 if xyz occur as an increasing subsequence of the cycle,
-       returns 0 otherwise.
-     */
-    int Sequence (int x, int y, int z) const;
+    /* returns true only if xyz occur as an increasing subsequence */
+    bool Sequence (int x, int y, int z) const;
     /* flips the portion of the cycle from x to y (inclusive) */
     void Flip (int x, int y);
 private:
     void Init_0 ();
     void Init_1 (int count);
+    void Flip_0 ( ChildNode *xc,  ChildNode *yc);
+    void Reverse () { _reversed ^= 1; }
+    bool IsBackward (ParentNode* p) const { return (_reversed^(p->rev)); }
+    bool IsForward (ParentNode* p) const { return !IsBackward(p); }
     bool SameSegmant (ChildNode *a, ChildNode *b) const;
-    void SameSegmentFlip (ChildNode *a, ChildNode *b);
-    void ConsecutiveSegmentFlip (ParentNode *a, ParentNode *b);
+    void SameSegmentFlip (ChildNode *a, ChildNode *b) const;
+    void ConsecutiveSegmentFlip (ParentNode *a, ParentNode *b) const;
     /* split between a and aPrev */
-    void SegmentSplit (ParentNode *p, ChildNode *aPrev, ChildNode *a, int left_or_right);
+    void SegmentSplit (ParentNode *p, ChildNode *aPrev, ChildNode *a,
+            int left_or_right) const;
 private:
     ParentNode *_parents;
     ChildNode  *_children;
@@ -131,10 +136,11 @@ private:
 
 /* 2-exchange speeded up by neighbor-lists.
    This is desribed in Section 3.3 of "The traveling salesman problem:
-   A case study in local optimization" by Johnson, David, Lyle in 1997. */
+   a case study in local optimization" by Johnson, David, Lyle in 1997. */
 class TwoOpt {
 public:
-    explicit TwoOpt (const Evaluator* e) : _eval(e), _flipper(e->GetNumCity()) {}
+    explicit TwoOpt (const Evaluator* e) :
+        _eval(e), _flipper(e->GetNumCity()) {}
     ~TwoOpt () = default;
     const Flipper* GetFlipper () const { return &_flipper; }
     void DoIt ();

@@ -1128,8 +1128,7 @@ static std::vector<edgelook> weird_look_ahead3 (graph *G, TspLib *D, Flipper *F,
 
     for (i = 0; goodlist[t6][i].weight <= gain; i++) {
         t7 = goodlist[t6][i].other;   /* Need t7 != t2, t3, t2next, t3prev */
-        if (weirdmark[t7] != weirdmagic &&
-                   F->Sequence(t2, t7, t3)) {
+        if (weirdmark[t7] != weirdmagic && F->Sequence(t2, t7, t3)) {
             t8 = F->Prev(t7);
             val = goodlist[t6][i].weight - Edgelen (t7, t8, D);
             if (val < value[0]) {

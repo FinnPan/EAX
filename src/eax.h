@@ -7,18 +7,18 @@ namespace th { /* tsp heuristics */
 
 class Indi {
 public:
-    Indi();
-    ~Indi();
+    Indi ();
+    ~Indi ();
 
-    Indi(const Indi&) = delete;
-    Indi& operator=(const Indi&);
-    Indi(Indi&&) = delete;
-    Indi& operator=(Indi&&) = delete;
+    Indi (const Indi&) = delete;
+    Indi& operator= (const Indi&);
+    Indi (Indi&&) = delete;
+    Indi& operator= (Indi&&) = delete;
 
-    void Define(int n);
-    void ToArray(int* arr, int* arrInv = nullptr) const;
-    void DoneBy(const Evaluator* e);
-    void FromFlipper(const Evaluator* e, const Flipper* f);
+    void Define (int n);
+    void ToArray (int* arr, int* arrInv = nullptr) const;
+    void DoneBy (const Evaluator* e);
+    void FromFlipper (const Evaluator* e, const Flipper* f);
     void FromArray (const Evaluator* e, const int* route);
     void MadeRand (const Evaluator* e);
 
@@ -34,19 +34,19 @@ public:
  */
 class Cross {
 public:
-    Cross(const Evaluator* e, int nPop);
-    ~Cross();
+    Cross (const Evaluator* e, int nPop);
+    ~Cross ();
 
-    void DoIt(Indi& kid, Indi& pa2, int nKids);
+    void DoIt (Indi& kid, Indi& pa2, int nKids);
 
 private:
-    void BuildABcycle(const Indi& pa1, const Indi& pa2, int nKids);
-    void BuildABcycle_0(int stAppear, int& posiCurr);
-    void ChangeSol(Indi& kid, int idx, bool reverse, bool updateSeg = true);
-    void MakeUnit();
-    int MakeCompleteSol(Indi& kid);
-    void BackToPa1(Indi& kid, int appliedCycle);
-    void GoToBest(Indi& kid, int bestAppliedCycle);
+    void BuildABcycle (const Indi& pa1, const Indi& pa2, int nKids);
+    void BuildABcycle_0 (int stAppear, int& posiCurr);
+    void ChangeSol (Indi& kid, int idx, bool reverse, bool updateSeg = true);
+    void MakeUnit ();
+    int MakeCompleteSol (Indi& kid);
+    void BackToPa1 (Indi& kid, int appliedCycle);
+    void GoToBest (Indi& kid, int bestAppliedCycle);
 
 private:
     const Evaluator* const _eval;
@@ -92,11 +92,10 @@ private:
 
 class EAXGA {
 public:
-    EAXGA(int nPop = 100, int nKid = 30);
-    ~EAXGA();
+    EAXGA (const Evaluator* eval, int nPop = 100, int nKid = 30);
+    ~EAXGA ();
 
-    bool Define(const char* tspFileName);
-    void DoIt();
+    void DoIt ();
 
     const Indi& GetBestIndi () const { return _best; }
     int GetPopNum () const { return _numPop; }
@@ -106,11 +105,12 @@ public:
     void SetSilent (bool s) { _silent = s; }
 
 private:
-    void SelectBest();
-    bool ShouldTerminate();
-    void SelectForMating();
+    bool Init ();
+    void SelectBest ();
+    bool ShouldTerminate ();
+    void SelectForMating ();
 
-    Evaluator* const _eval;
+    const Evaluator* _eval;
     int* const _matingSeq;
     TwoOpt* _opt2;
     Cross* _cross;

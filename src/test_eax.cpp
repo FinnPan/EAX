@@ -9,11 +9,13 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    EAXGA eax;
-    eax.SetSilent(true);
-    if (!eax.Define(argv[1])) {
+    Evaluator eval;
+    if (!eval.Init(argv[1])) {
         return 1;
     }
+
+    EAXGA eax(&eval);
+    eax.SetSilent(true);
 
     RUsage ru;
     eax.DoIt();

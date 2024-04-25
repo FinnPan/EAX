@@ -105,7 +105,7 @@ int main (int ac, char **av)
         }
     } while (++iter < number_runs);
     printf ("Overall Best Cycle: %.0f\n", val);
-    ru.Report("clk");
+    ru.Report("CLK");
 
 CLEANUP:
     delete[] edgeList;

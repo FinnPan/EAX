@@ -95,7 +95,7 @@ bool TspLib::Init (const char *fileName)
             }
 
             if (!strcmp(key, "NAME")) {
-                printf("Problem Name: %s", p);
+                printf("======== Problem Name: %s", p);
             } else if (!strcmp(key, "TYPE")) {
                 printf("Problem Type: %s", p);
                 if (sscanf(p, "%s", field) == EOF || strcmp(field, "TSP")) {
@@ -184,36 +184,35 @@ void Flipper::Init_0 ()
     _splitCutoff = 0;
 }
 
-#define GROUPSIZE_FACTOR 0.50
-#define SEGMENT_SPLIT_CUTOFF 0.30
 void Flipper::Init_1 (int count)
 {
+    constexpr double GROUPSIZE_FACTOR = 0.50;
+    constexpr double SEGMENT_SPLIT_CUTOFF = 0.30;
+
     _reversed = 0;
-    _groupSize = (int)(sqrt((double)count) * GROUPSIZE_FACTOR);
+    _groupSize = (int)(sqrt(count) * GROUPSIZE_FACTOR);
     _numSegments =  (count + _groupSize - 1) / _groupSize;
     _splitCutoff = _groupSize * SEGMENT_SPLIT_CUTOFF;
+
     _parents = new ParentNode[_numSegments];
-    /* The +1 will stop a purify burp later */
-    _children = new ChildNode[count + 1];
+    _children = new ChildNode[count];
     assert(_parents && _children);
 
     int remain = count;
-    int i = 0;
-    int j = 2 * _groupSize;
-    while (remain >= j) {
-        _parents[i].size = _groupSize;
-        remain -= _groupSize;
-        i++;
+    int n = 0;
+    while (remain >= 2 * _groupSize) {
+        int s = _groupSize;
+        _parents[n++].size = s;
+        remain -= s;
     }
     if (remain > _groupSize) {
-        _parents[i].size = remain / 2;
-        remain -= (remain / 2);
-        i++;
+        int s = remain / 2;
+        _parents[n++].size = s;
+        remain -= s;
     }
-    _parents[i].size = remain;
-    i++;
+    _parents[n++].size = remain;
 
-    if (i != _numSegments) {
+    if (n != _numSegments) {
         fprintf (stderr, "ERROR: seg count is wrong\n");
         assert(0);
     }
@@ -221,72 +220,68 @@ void Flipper::Init_1 (int count)
 
 void Flipper::SetCycle (int count, const int *cyc)
 {
-    ChildNode *c, *cPrev;
+    ChildNode *c, *c0;
     ParentNode *p;
 
-    c = &(_children[cyc[count - 1]]);
-    p = _parents;
-    for (int i = 0, cind = 0; i < _numSegments; p++, i++) {
+    c0 = _children + cyc[count - 1];
+    for (int i = 0, n = 0; i < _numSegments; i++) {
+        p = _parents + i;
         p->id = i;
         p->rev = 0;
-        p->ends[0] = &(_children[cyc[cind]]);
-        for (int j = p->size; j > 0; j--) {
-            cPrev = c;
-            c = &(_children[cyc[cind]]);
-            c->id = cind;
-            c->name = cyc[cind];
+        p->ends[0] = _children + cyc[n];
+        for (int j = 0; j < p->size; j++) {
+            c = _children + cyc[n];
             c->parent = p;
-            c->adj[0] = cPrev;
-            cPrev->adj[1] = c;
-            cind++;
+            c->id = n;
+            c->name = cyc[n];
+            c->adj[0] = c0;
+            c0->adj[1] = c;
+            c0 = c;
+            n++;
         }
         p->ends[1] = c;
         p->adj[0] = p - 1;
         p->adj[1] = p + 1;
     }
-    _parents[0].adj[0] = &(_parents[_numSegments - 1]);
-    _parents[_numSegments - 1].adj[1] = &(_parents[0]);
+    _parents[0].adj[0] = _parents + _numSegments - 1;
+    _parents[_numSegments - 1].adj[1] = _parents;
 }
 
-void Flipper::GetCycle (int *x) const
+void Flipper::GetCycle (int *cyc) const
 {
-    ChildNode *c, *start;
-    int k = 0;
-
-    start = &(_children[0]);
-    c = start->adj[!((_reversed)^(start->parent->rev))];
-
-    x[k++] = start->name;
-    while (c != start) {
-        x[k++] = c->name;
-        c = c->adj[!((_reversed)^(c->parent->rev))];
-    }
+    ChildNode *c0 = _children;
+    ChildNode *c = c0;
+    int n = 0;
+    do {
+        cyc[n++] = c->name;
+        c = _children + Next(c->name);
+    } while(c != c0);
 }
 
 int Flipper::Next (int x) const
 {
-    return
-      _children[x].adj[!((_reversed)^(_children[x].parent->rev))]->name;
+    ChildNode *c = _children + x;
+    return c->adj[IsForward(c->parent)]->name;
 }
 
 int Flipper::Prev (int x) const
 {
-    return
-      _children[x].adj[(_reversed)^(_children[x].parent->rev)]->name;
+    ChildNode *c = _children + x;
+    return c->adj[IsBackward(c->parent)]->name;
 }
 
-int Flipper::Sequence (int x, int y, int z) const
+bool Flipper::Sequence (int x, int y, int z) const
 {
-    ChildNode *a = &(_children[x]);
-    ChildNode *b = &(_children[y]);
-    ChildNode *c = &(_children[z]);
+    ChildNode *a = _children + x;
+    ChildNode *b = _children + y;
+    ChildNode *c = _children + z;
     ParentNode *pa = a->parent;
     ParentNode *pb = b->parent;
     ParentNode *pc = c->parent;
 
     if (pa == pb) {
         if (pa == pc) {
-            if ((_reversed)^(pa->rev)) {
+            if (IsBackward(pa)) {
                 if (a->id >= b->id) {
                     return (b->id >= c->id || c->id >= a->id);
                 } else {
@@ -300,24 +295,24 @@ int Flipper::Sequence (int x, int y, int z) const
                 }
             }
         } else {
-            if ((_reversed)^(pa->rev)) {
+            if (IsBackward(pa)) {
                 return (a->id >= b->id);
             } else {
                 return (a->id <= b->id);
             }
         }
     } else if (pa == pc) {
-            if ((_reversed)^(pa->rev)) {
-                return (a->id <= c->id);
-            } else {
-                return (a->id >= c->id);
-            }
+        if (IsBackward(pa)) {
+            return (a->id <= c->id);
+        } else {
+            return (a->id >= c->id);
+        }
     } else if (pb == pc) {
-            if ((_reversed)^(pb->rev)) {
-                return (b->id >= c->id);
-            } else {
-                return (b->id <= c->id);
-            }
+        if (IsBackward(pb)) {
+            return (b->id >= c->id);
+        } else {
+            return (b->id <= c->id);
+        }
     } else {
         if (_reversed) {
             if (pa->id >= pb->id) {
@@ -337,348 +332,244 @@ int Flipper::Sequence (int x, int y, int z) const
 
 void Flipper::Flip (int x, int y)
 {
-    ChildNode *xc = &(_children[x]);
-    ChildNode *yc = &(_children[y]);
+    ChildNode *xc = _children + x;
+    ChildNode *yc = _children + y;
+    const bool xBackward = IsBackward(xc->parent);
+    const bool yForward = IsForward(yc->parent);
+    ChildNode *xPrev = xc->adj[xBackward];
+    ChildNode *yNext = yc->adj[yForward];
 
     if (SameSegmant(xc, yc)) {
-        if (xc != yc) {
-            SameSegmentFlip(xc, yc);
-        }
-    } else {
-        int xDir = ((_reversed)^(xc->parent->rev));
-        int yDir = ((_reversed)^(yc->parent->rev));
-        ChildNode *xPrev = xc->adj[xDir];
-        ChildNode *yNext = yc->adj[!yDir];
-        if (SameSegmant(yNext, xPrev)) {
-            if (yNext != xPrev) {
-                SameSegmentFlip(yNext, xPrev);
-            }
-            (_reversed) ^= 1;
-        } else {
-            int side;
-            if (xc->parent->ends[xDir] == xc &&
-                yc->parent->ends[!yDir] == yc) {
-                if (_reversed)
-                    side = xc->parent->id - yc->parent->id;
-                else
-                    side = yc->parent->id - xc->parent->id;
-                if (side < 0)
-                    side += _numSegments;
-                if (side < _numSegments / 2) {
-                    ConsecutiveSegmentFlip(xc->parent, yc->parent);
-                } else {
-                    ConsecutiveSegmentFlip(yc->parent->adj[!_reversed],
-                                           xc->parent->adj[_reversed]);
-                    (_reversed) ^= 1;
-                }
-            } else {
-                if (xPrev->parent == xc->parent) {
-                    SegmentSplit(xc->parent, xPrev, xc, 0);
-                    if (SameSegmant(xc, yc)) {
-                        if (xc != yc)
-                            SameSegmentFlip(xc, yc);
-                        return;
-                    } else if (SameSegmant(yNext, xPrev)) {
-                        if (yNext != xPrev) {
-                            SameSegmentFlip(yNext, xPrev);
-                        }
-                        (_reversed) ^= 1;
-                        return;
-                    }
-                }
-                if (yNext->parent == yc->parent) {
-                    SegmentSplit(yc->parent, yc, yNext, 0);
-                    if (SameSegmant(xc, yc)) {
-                        if (xc != yc)
-                            SameSegmentFlip(xc, yc);
-                        return;
-                    } else if (SameSegmant(yNext, xPrev)) {
-                        if (yNext != xPrev) {
-                            SameSegmentFlip(yNext, xPrev);
-                        }
-                        (_reversed) ^= 1;
-                        return;
-                    }
-                }
-                if (_reversed)
-                    side = xc->parent->id - yc->parent->id;
-                else
-                    side = yc->parent->id - xc->parent->id;
-                if (side < 0)
-                    side += _numSegments;
-                if (side < _numSegments / 2) {
-                    ConsecutiveSegmentFlip(xc->parent, yc->parent);
-                } else {
-                    ConsecutiveSegmentFlip(yc->parent->adj[!_reversed],
-                                           xc->parent->adj[_reversed]);
-                    (_reversed) ^= 1;
-                }
+        SameSegmentFlip(xc, yc);
+        return;
+    }
 
-            }
+    if (SameSegmant(yNext, xPrev)) {
+        SameSegmentFlip(yNext, xPrev);
+        Reverse();
+        return;
+    }
+
+    if (xc->parent->ends[xBackward] == xc &&
+        yc->parent->ends[yForward] == yc) {
+        Flip_0(xc, yc);
+        return;
+    }
+
+    if (xPrev->parent == xc->parent) {
+        SegmentSplit(xc->parent, xPrev, xc, 0);
+        if (SameSegmant(xc, yc)) {
+            SameSegmentFlip(xc, yc);
+            return;
+        } else if (SameSegmant(yNext, xPrev)) {
+            SameSegmentFlip(yNext, xPrev);
+            Reverse();
+            return;
         }
+    }
+
+    if (yNext->parent == yc->parent) {
+        SegmentSplit(yc->parent, yc, yNext, 0);
+        if (SameSegmant(xc, yc)) {
+            SameSegmentFlip(xc, yc);
+            return;
+        } else if (SameSegmant(yNext, xPrev)) {
+            SameSegmentFlip(yNext, xPrev);
+            Reverse();
+            return;
+        }
+    }
+
+    Flip_0(xc, yc);
+}
+
+void Flipper::Flip_0 ( ChildNode *xc,  ChildNode *yc)
+{
+    const bool segBackward = _reversed;
+    const bool segForward = !segBackward;
+    int side = segBackward? (xc->parent->id - yc->parent->id)
+                          : (yc->parent->id - xc->parent->id);
+    if (side < 0) {
+        side += _numSegments;
+    }
+
+    if (side < _numSegments / 2) {
+        ConsecutiveSegmentFlip(xc->parent, yc->parent);
+    } else {
+        ConsecutiveSegmentFlip(yc->parent->adj[segForward],
+                               xc->parent->adj[segBackward]);
+        Reverse();
     }
 }
 
 bool Flipper::SameSegmant (ChildNode *a, ChildNode *b) const
 {
-    return (
-        a->parent == b->parent &&
-        ( (!((_reversed)^(a->parent->rev)) && a->id <= b->id) ||
-          (((_reversed)^(a->parent->rev)) && a->id >= b->id) )
-    );
+    if (a->parent == b->parent) {
+        if (IsBackward(a->parent)) {
+            return (a->id >= b->id);
+        } else {
+            return (a->id <= b->id);
+        }
+    }
+    return false;
 }
 
-void Flipper::SameSegmentFlip (ChildNode *a, ChildNode *b)
+void Flipper::SameSegmentFlip (ChildNode *a, ChildNode *b) const
 {
     ParentNode *parent = a->parent;
-    int dir = ((_reversed)^(parent->rev));
-    ChildNode *aPrev = a->adj[dir];
-    ChildNode *bNext = b->adj[!dir];
-    ChildNode *c, *cNext;
+    const bool backward = IsBackward(parent);
+    const bool forward = !backward;
+    ChildNode *aPrev = a->adj[backward];
+    ChildNode *bNext = b->adj[forward];
 
-    if ((dir && a->id - b->id > _splitCutoff) ||
-       (!dir && b->id - a->id > _splitCutoff)) {
-        if (aPrev->parent == parent)
-            SegmentSplit(parent, aPrev, a, 1);
-        if (bNext->parent == parent)
-            SegmentSplit(parent, b, bNext, 2);
-        aPrev->adj[!((_reversed)^(aPrev->parent->rev))] = b;
-        bNext->adj[(_reversed)^(bNext->parent->rev)] = a;
-        a->adj[dir] = bNext;
-        b->adj[!dir] = aPrev;
-        parent->rev ^= 1;
+    if (a == b) {
         return;
     }
 
-    if (dir) {
-        int id = a->id;
-        aPrev->adj[!((_reversed)^(aPrev->parent->rev))] = b;
-        bNext->adj[(_reversed)^(bNext->parent->rev)] = a;
-        cNext = b->adj[1];
-        b->adj[1] = aPrev;
-        b->adj[0] = cNext;
-        b->id = id--;
-        c = cNext;
-        while (c != a) {
-            cNext = c->adj[1];
-            c->adj[1] = c->adj[0];
-            c->adj[0] = cNext;
-            c->id = id--;
-            c = cNext;
+    if ((backward && a->id - b->id > _splitCutoff) ||
+        (forward && b->id - a->id > _splitCutoff)) {
+        if (aPrev->parent == parent) {
+            SegmentSplit(parent, aPrev, a, 1);
         }
-        a->adj[1] = a->adj[0];
-        a->adj[0] = bNext;
-        a->id = id;
-        if (parent->ends[1] == a)
-            parent->ends[1] = b;
-        if (parent->ends[0] == b)
-            parent->ends[0] = a;
+        if (bNext->parent == parent) {
+            SegmentSplit(parent, b, bNext, 2);
+        }
+        aPrev->adj[IsForward(aPrev->parent)] = b;
+        bNext->adj[IsBackward(bNext->parent)] = a;
+        a->adj[backward] = bNext;
+        b->adj[forward] = aPrev;
+        parent->rev ^= 1;
     } else {
+        int id_1 = backward? -1 : 1;
         int id = a->id;
-        aPrev->adj[!((_reversed)^(aPrev->parent->rev))] = b;
-        bNext->adj[(_reversed)^(bNext->parent->rev)] = a;
-        c = b->adj[0];
-        b->adj[0] = aPrev;
-        b->adj[1] = c;
-        b->id = id++;
-        while (c != a) {
-            cNext = c->adj[0];
-            c->adj[0] = c->adj[1];
-            c->adj[1] = cNext;
-            c->id = id++;
+        ChildNode *c = b;
+        while (c != aPrev) {
+            ChildNode *cNext = c->adj[backward];
+            c->adj[backward] = c->adj[forward];
+            c->adj[forward] = cNext;
+            c->id = id;
+            id += id_1;
             c = cNext;
         }
-        a->adj[0] = a->adj[1];
-        a->adj[1] = bNext;
-        a->id = id;
-        if (parent->ends[0] == a)
-            parent->ends[0] = b;
-        if (parent->ends[1] == b)
-            parent->ends[1] = a;
+        a->adj[forward] = bNext;
+        bNext->adj[IsBackward(bNext->parent)] = a;
+        b->adj[backward] = aPrev;
+        aPrev->adj[IsForward(aPrev->parent)] = b;
+        if (parent->ends[backward] == a) {
+            parent->ends[backward] = b;
+        }
+        if (parent->ends[forward] == b) {
+            parent->ends[forward] = a;
+        }
     }
 }
 
-void Flipper::ConsecutiveSegmentFlip (ParentNode *a, ParentNode *b)
+void Flipper::ConsecutiveSegmentFlip (ParentNode *a, ParentNode *b) const
 {
-    ParentNode *aPrev = a->adj[_reversed];
-    ParentNode *bNext = b->adj[!_reversed];
-    ParentNode *c, *cNext;
-    ChildNode *aChild = a->ends[(_reversed)^(a->rev)];
-    ChildNode *bChild = b->ends[!((_reversed)^(b->rev))];
-    ChildNode *childPrev, *childNext;
+    const bool aBackward = IsBackward(a);
+    const bool bForward = IsForward(b);
+    ChildNode *aChild = a->ends[aBackward];
+    ChildNode *bChild = b->ends[bForward];
+    ChildNode *childPrev = aChild->adj[aBackward];
+    ChildNode *childNext = bChild->adj[bForward];
+    childPrev->adj[IsForward(childPrev->parent)] = bChild;
+    bChild->adj[bForward] = childPrev;
+    childNext->adj[IsBackward(childNext->parent)] = aChild;
+    aChild->adj[aBackward] = childNext;
+
+    const bool segBackward = _reversed;
+    const bool segForward = !segBackward;
+    ParentNode *aPrev = a->adj[segBackward];
+    ParentNode *bNext = b->adj[segForward];
+    int id_1 = segBackward? -1 : 1;
     int id = a->id;
-
-    if (_reversed) {
-        childPrev = aChild->adj[!a->rev];
-        childNext = bChild->adj[b->rev];
-        childPrev->adj[childPrev->parent->rev] = bChild;
-        childNext->adj[!childNext->parent->rev] = aChild;
-        bChild->adj[b->rev] = childPrev;
-        aChild->adj[!a->rev] = childNext;
-
-        aPrev->adj[0] = b;
-        bNext->adj[1] = a;
-        c = b->adj[1];
-        b->adj[1] = aPrev;
-        b->adj[0] = c;
-        b->id = id--;
-        b->rev ^= 1;
-        while (c != a) {
-            cNext = c->adj[1];
-            c->adj[1] = c->adj[0];
-            c->adj[0] = cNext;
-            c->id = id--;
-            c->rev ^= 1;
-            c = cNext;
-        }
-        a->adj[1] = a->adj[0];
-        a->adj[0] = bNext;
-        a->id = id;
-        a->rev ^= 1;
-    } else {
-        childPrev = aChild->adj[a->rev];
-        childNext = bChild->adj[!b->rev];
-        childPrev->adj[!childPrev->parent->rev] = bChild;
-        childNext->adj[childNext->parent->rev] = aChild;
-        bChild->adj[!b->rev] = childPrev;
-        aChild->adj[a->rev] = childNext;
-
-        aPrev->adj[1] = b;
-        bNext->adj[0] = a;
-        c = b->adj[0];
-        b->adj[0] = aPrev;
-        b->adj[1] = c;
-        b->id = id++;
-        b->rev ^= 1;
-        while (c != a) {
-            cNext = c->adj[0];
-            c->adj[0] = c->adj[1];
-            c->adj[1] = cNext;
-            c->id = id++;
-            c->rev ^= 1;
-            c = cNext;
-        }
-        a->adj[0] = a->adj[1];
-        a->adj[1] = bNext;
-        a->id = id;
-        a->rev ^= 1;
+    ParentNode *c = b;
+    while (c != aPrev) {
+        ParentNode *cNext = c->adj[segBackward];
+        c->adj[segBackward] = c->adj[segForward];
+        c->adj[segForward] = cNext;
+        c->id = id;
+        id += id_1;
+        c->rev ^= 1;
+        c = cNext;
     }
+    a->adj[segForward] = bNext;
+    bNext->adj[segBackward] = a;
+    b->adj[segBackward] = aPrev;
+    aPrev->adj[segForward] = b;
 }
 
 /* split between a and aPrev */
-void Flipper::SegmentSplit (ParentNode *p, ChildNode *aPrev, ChildNode *a, int left_or_right)
+void Flipper::SegmentSplit (ParentNode *p, ChildNode *aPrev, ChildNode *a,
+        int left_or_right) const
 {
-    int side;
-    int dir = ((_reversed)^(p->rev));
-    int id;
+    const bool segBackward = _reversed;
+    const bool segForward = !segBackward;
+    const bool backward = IsBackward(p);
+    const bool forward = !backward;
+    const int side = backward? (p->ends[1]->id - aPrev->id + 1)
+                             : (aPrev->id - p->ends[0]->id + 1);
+    const bool do_left_side = ((left_or_right == 0 && side <= p->size / 2) ||
+                               (left_or_right == 1));
+
+    int id, id_1;
     ParentNode *pNext;
     ChildNode *b, *bNext;
+    bool nextBackward, nextForward;
 
-    if (dir) side = p->ends[1]->id - aPrev->id + 1;
-    else     side = aPrev->id - p->ends[0]->id + 1;
-
-    if ((left_or_right == 0 && side <= p->size / 2) || left_or_right == 1) {
-        pNext = p->adj[_reversed];
+    if (do_left_side) {
+        pNext = p->adj[segBackward];
+        nextBackward = IsBackward(pNext);
+        nextForward = !nextBackward;
         pNext->size += side;
         p->size -= side;
-        if (pNext->rev == p->rev) {
-            b = pNext->ends[!dir];
-            id = b->id;
-            if (dir) {
-                do {
-                    b = b->adj[0];
-                    b->id = --id;
-                    b->parent = pNext;
-                } while (b != aPrev);
-            } else {
-                do {
-                    b = b->adj[1];
-                    b->id = ++id;
-                    b->parent = pNext;
-                } while (b != aPrev);
+
+        b = pNext->ends[nextForward];
+        bNext = b->adj[nextForward];
+        id = b->id;
+        id_1 = nextBackward? -1 : 1;
+        do {
+            b = bNext;
+            id += id_1;
+            b->id = id;
+            b->parent = pNext;
+            bNext = b->adj[forward];
+            if (pNext->rev != p->rev) {
+                b->adj[forward] = b->adj[backward];
+                b->adj[backward] = bNext;
             }
-            pNext->ends[!dir] = aPrev;
-            p->ends[dir] = a;
-        } else {
-            b = pNext->ends[dir];
-            id = b->id;
-            if (!dir) {
-                bNext = b->adj[0];
-                do {
-                    b = bNext;
-                    b->id = --id;
-                    b->parent = pNext;
-                    bNext = b->adj[1];
-                    b->adj[1] = b->adj[0];
-                    b->adj[0] = bNext;
-                } while (b != aPrev);
-            } else {
-                bNext = b->adj[1];
-                do {
-                    b = bNext;
-                    b->id = ++id;
-                    b->parent = pNext;
-                    bNext = b->adj[0];
-                    b->adj[0] = b->adj[1];
-                    b->adj[1] = bNext;
-                } while (b != aPrev);
-            }
-            pNext->ends[dir] = aPrev;
-            p->ends[dir] = a;
-        }
+        } while (b != aPrev);
+        pNext->ends[nextForward] = aPrev;
+        p->ends[backward] = a;
     } else {
-        pNext = p->adj[!_reversed];
+        pNext = p->adj[segForward];
+        nextBackward = IsBackward(pNext);
+        nextForward = !nextBackward;
         pNext->size += (p->size - side);
         p->size = side;
-        if (pNext->rev == p->rev) {
-            b = pNext->ends[dir];
-            id = b->id;
-            if (dir) {
-                do {
-                    b = b->adj[1];
-                    b->id = ++id;
-                    b->parent = pNext;
-                } while (b != a);
-            } else {
-                do {
-                    b = b->adj[0];
-                    b->id = --id;
-                    b->parent = pNext;
-                } while (b != a);
+
+        b = pNext->ends[nextBackward];
+        bNext = b->adj[nextBackward];
+        id = b->id;
+        id_1 = nextForward? -1 : 1;
+        do {
+            b = bNext;
+            id += id_1;
+            b->id = id;
+            b->parent = pNext;
+            bNext = b->adj[backward];
+            if (pNext->rev != p->rev) {
+                b->adj[backward] = b->adj[forward];
+                b->adj[forward] = bNext;
             }
-            pNext->ends[dir] = a;
-            p->ends[!dir] = aPrev;
-        } else {
-            b = pNext->ends[!dir];
-            id = b->id;
-            if (!dir) {
-                bNext = b->adj[1];
-                do {
-                    b = bNext;
-                    b->id = ++id;
-                    b->parent = pNext;
-                    bNext = b->adj[0];
-                    b->adj[0] = b->adj[1];
-                    b->adj[1] = bNext;
-                } while (b != a);
-            } else {
-                bNext = b->adj[0];
-                do {
-                    b = bNext;
-                    b->id = --id;
-                    b->parent = pNext;
-                    bNext = b->adj[1];
-                    b->adj[1] = b->adj[0];
-                    b->adj[0] = bNext;
-                } while (b != a);
-            }
-            pNext->ends[!dir] = a;
-            p->ends[!dir] = aPrev;
-        }
+        } while (b != a);
+        pNext->ends[nextBackward] = a;
+        p->ends[forward] = aPrev;
     }
 }
 
-Evaluator::Evaluator () : _maxNumNear(50), _nearTbl(nullptr), _routeBuf(nullptr)
+Evaluator::Evaluator () :
+    _maxNumNear(50), _nearTbl(nullptr), _routeBuf(nullptr)
 {
     std::random_device rd;
     _rand = new RandEngine(rd());
@@ -732,7 +623,8 @@ void Evaluator::BuildNeighborLists ()
 
     class LessCmp {
     public:
-        explicit LessCmp (const Evaluator* eval, int ci) : _eval(eval), _ci(ci) {}
+        explicit LessCmp (const Evaluator* eval, int ci) :
+            _eval(eval), _ci(ci) {}
         ~LessCmp () = default;
         bool operator() (const int l, const int r) const {
             double costL = _eval->GetCost(l, _ci);
@@ -793,11 +685,6 @@ int Evaluator::DoIt (const Flipper* f) const
 
     c1 = 0;
     do {
-        if (c1 == 0) {
-            c2 = f->Prev(c1);
-            cost += GetCost(c1, c2);
-        }
-
         c2 = f->Next(c1);
         cost += GetCost(c1, c2);
         c1 = c2;

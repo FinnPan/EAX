@@ -46,6 +46,12 @@ add_custom_target(test-clk
     COMMAND ${target_clk} ${instances_path}/pr2392.tsp
 )
 
+add_custom_target(test-all
+    COMMAND ${target_2opt} ${instances_path}/fnl4461.tsp
+    COMMAND ${target_eax} ${instances_path}/eil101.tsp
+    COMMAND ${target_clk} ${instances_path}/pr2392.tsp
+)
+
 add_custom_target(test-eax-heavy
     COMMAND ${target_eax} ${instances_path}/fnl4461.tsp
 )

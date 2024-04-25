@@ -2,12 +2,12 @@
 
 namespace th { /* tsp heuristics */
 
-Indi::Indi()
+Indi::Indi ()
     : _numCity(0), _link(nullptr), _cost(std::numeric_limits<int>::max())
 {
 }
 
-Indi::~Indi()
+Indi::~Indi ()
 {
     for (int i = 0; i < _numCity; ++i) {
         delete[] _link[i];
@@ -15,7 +15,7 @@ Indi::~Indi()
     delete[] _link;
 }
 
-void Indi::Define(int n)
+void Indi::Define (int n)
 {
     _numCity = n;
     _link = new int*[n];
@@ -24,7 +24,7 @@ void Indi::Define(int n)
     }
 }
 
-Indi& Indi::operator=(const Indi& rhs)
+Indi& Indi::operator= (const Indi& rhs)
 {
     if (this != &rhs) {
         _numCity = rhs._numCity;
@@ -38,7 +38,7 @@ Indi& Indi::operator=(const Indi& rhs)
     return *this;
 }
 
-void Indi::ToArray(int* arr, int* arrInv) const
+void Indi::ToArray (int* arr, int* arrInv) const
 {
     int curr = -1, next = 0, prev = -1;
     for (int i = 0; i < _numCity; ++i) {
@@ -56,7 +56,7 @@ void Indi::ToArray(int* arr, int* arrInv) const
     }
 }
 
-void Indi::DoneBy(const Evaluator* e)
+void Indi::DoneBy (const Evaluator* e)
 {
     _cost = 0;
     for (int i = 0; i < e->GetNumCity(); ++i) {
@@ -85,7 +85,7 @@ void Indi::MadeRand (const Evaluator* e)
     FromArray(e, route);
 }
 
-void Indi::FromFlipper(const Evaluator* e, const Flipper* f)
+void Indi::FromFlipper (const Evaluator* e, const Flipper* f)
 {
     for (int i = 0; i < _numCity; ++i) {
         _link[i][0] = f->Prev(i);
@@ -95,29 +95,31 @@ void Indi::FromFlipper(const Evaluator* e, const Flipper* f)
 }
 
 
-EAXGA::EAXGA(int nPop, int nKid)
-    : _eval(new Evaluator()), _matingSeq(new int[nPop + 1]),
+EAXGA::EAXGA (const Evaluator* eval, int nPop, int nKid)
+    : _eval(eval), _matingSeq(new int[nPop + 1]),
       _opt2(nullptr), _cross(nullptr), _pop(nullptr),
       _numPop(nPop), _numKids(nKid), _silent(false),
       _numGen(0), _avgCost(0), _stagnGen(0)
-{}
+{
+    Init();
+}
 
-EAXGA::~EAXGA()
+EAXGA::~EAXGA ()
 {
     delete[] _matingSeq;
     delete _opt2;
     delete _cross;
     delete[] _pop;
-    delete _eval;
 }
 
-bool EAXGA::Define(const char* tspFileName)
+bool EAXGA::Init ()
 {
-    if (!_eval->Init(tspFileName)) {
+    const int n = _eval->GetNumCity();
+    if (n <= 0) {
+        fprintf(stderr, "ERROR: #cities = %d\n", n);
         return false;
     }
 
-    const int n = _eval->GetNumCity();
     _best.Define(n);
     _opt2 = new TwoOpt(_eval);
     _cross = new Cross(_eval, _numPop);
@@ -128,7 +130,7 @@ bool EAXGA::Define(const char* tspFileName)
     return true;
 }
 
-void EAXGA::DoIt()
+void EAXGA::DoIt ()
 {
     _numGen = 0;
     _stagnGen = 0;
@@ -159,7 +161,7 @@ void EAXGA::DoIt()
     }
 }
 
-void EAXGA::SelectBest()
+void EAXGA::SelectBest ()
 {
     int stockBest = _best._cost;
 
@@ -185,7 +187,7 @@ void EAXGA::SelectBest()
     }
 }
 
-bool EAXGA::ShouldTerminate()
+bool EAXGA::ShouldTerminate ()
 {
     if (_avgCost - _best._cost < 0.001) {
         return true;
@@ -198,7 +200,7 @@ bool EAXGA::ShouldTerminate()
     return false;
 }
 
-void EAXGA::SelectForMating()
+void EAXGA::SelectForMating ()
 {
     for (int i = 0; i < _numPop; i++) {
         _matingSeq[i] = i;
@@ -207,7 +209,7 @@ void EAXGA::SelectForMating()
     _matingSeq[_numPop] = _matingSeq[0];
 }
 
-Cross::Cross(const Evaluator* e, int nPop)
+Cross::Cross (const Evaluator* e, int nPop)
     : _eval(e), _numCity(e->GetNumCity()), _numPop(nPop), _maxNumABcycle(2000)
 {
     const int n = _numCity;
@@ -263,7 +265,7 @@ Cross::Cross(const Evaluator* e, int nPop)
     _routeBuf = new int[n];
 }
 
-Cross::~Cross()
+Cross::~Cross ()
 {
     const int n = _numCity;
     for (int j = 0; j < _maxNumABcycle; ++j) {
@@ -315,7 +317,7 @@ Cross::~Cross()
     delete[] _routeBuf;
 }
 
-void Cross::DoIt(Indi& kid, Indi& pa2, int nKids)
+void Cross::DoIt (Indi& kid, Indi& pa2, int nKids)
 {
     int bestGain = 0, gain;
     int bestAppliedCycle, appliedCycle;
@@ -366,7 +368,7 @@ void Cross::DoIt(Indi& kid, Indi& pa2, int nKids)
     }
 }
 
-void Cross::BuildABcycle(const Indi& pa1, const Indi& pa2, int nKids)
+void Cross::BuildABcycle (const Indi& pa1, const Indi& pa2, int nKids)
 {
     const int n = _numCity;
     int* checkCycBuf1 = _routeBuf;
@@ -547,7 +549,7 @@ LLL:;
     }
 }
 
-void Cross::BuildABcycle_0(int stAppear, int& posiCurr)
+void Cross::BuildABcycle_0 (int stAppear, int& posiCurr)
 {
     const int st = _cycRoute[posiCurr];
     int st_count = 0;
@@ -613,7 +615,7 @@ void Cross::BuildABcycle_0(int stAppear, int& posiCurr)
     ++_numABcycle;
 }
 
-void Cross::ChangeSol(Indi& kid, int idx, bool reverse, bool updateSeg)
+void Cross::ChangeSol (Indi& kid, int idx, bool reverse, bool updateSeg)
 {
     const int n = _numCity;
     int cem, r1, r2, b1, b2;
@@ -673,7 +675,7 @@ void Cross::ChangeSol(Indi& kid, int idx, bool reverse, bool updateSeg)
     }
 }
 
-void Cross::MakeUnit()
+void Cross::MakeUnit ()
 {
     const int n = _numCity;
     int flag = 1;
@@ -781,7 +783,7 @@ void Cross::MakeUnit()
     _numSeg = tmpNumSeg + 1;
 }
 
-int Cross::MakeCompleteSol(Indi& kid)
+int Cross::MakeCompleteSol (Indi& kid)
 {
     int gainModi = 0;
     constexpr int NearMaxDef = 10;
@@ -962,7 +964,7 @@ int Cross::MakeCompleteSol(Indi& kid)
     return gainModi;
 }
 
-void Cross::BackToPa1(Indi& kid, int appliedCycle)
+void Cross::BackToPa1 (Indi& kid, int appliedCycle)
 {
     int aa, bb, a1, b1;
     for (int s = _numModiEdge - 1; s >= 0; --s) {
@@ -996,7 +998,7 @@ void Cross::BackToPa1(Indi& kid, int appliedCycle)
     ChangeSol(kid, appliedCycle, true /*reverse*/, false /*updateSeg*/);
 }
 
-void Cross::GoToBest(Indi& kid, int bestAppliedCycle)
+void Cross::GoToBest (Indi& kid, int bestAppliedCycle)
 {
     int aa, bb, a1, b1;
 
