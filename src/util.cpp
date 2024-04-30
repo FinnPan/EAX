@@ -70,7 +70,6 @@ bool TspLib::Init (const char *fileName)
     _dimension = -1;
 
     char buf[256], key[256], field[256];
-    int norm = -1;
     FILE *in = fopen(fileName, "r");
 
     if (!in) {
@@ -236,6 +235,7 @@ void Flipper::SetCycle (int count, const int *cyc)
         p->id = i;
         p->rev = 0;
         p->ends[0] = _children + cyc[n];
+        c = nullptr;
         for (int j = 0; j < p->size; j++) {
             c = _children + cyc[n];
             c->parent = p;
@@ -686,7 +686,6 @@ int Evaluator::DoIt (const int* route) const
 
 int Evaluator::DoIt (const Flipper* f) const
 {
-    const int n = GetNumCity();
     int cost = 0;
     int c1, c2;
 

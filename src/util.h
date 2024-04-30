@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cmath>
 #include <cassert>
+#include <cstring>
+#include <climits>
 #include <random>
 #include <chrono>
 #include <algorithm>
