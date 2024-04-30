@@ -14,7 +14,7 @@ void RUsage::Report (const char* tag) const
     assert(tag);
     TimePoint end = Clock::now();
     std::chrono::duration<double> elapsed = end - _start;
-    printf("[%s] Elapsed time: %.3f s.\n", tag, elapsed.count());
+    printf("[%s] Elapsed-time: %.3fs.\n", tag, elapsed.count());
     fflush(stdout);
 }
 
@@ -25,7 +25,7 @@ void RUsage::SetRAIIReport (const char* tagRAII)
 }
 
 TspLib::TspLib () :
-    _dim(0), _x(nullptr), _y(nullptr), _edgeLen(nullptr)
+    _dimension(0), _optimal(0), _x(nullptr), _y(nullptr), _edgeLen(nullptr)
 {}
 
 TspLib::~TspLib ()
@@ -67,7 +67,7 @@ bool TspLib::Init (const char *fileName)
         return false;
     }
 
-    _dim = -1;
+    _dimension = -1;
 
     char buf[256], key[256], field[256];
     int norm = -1;
@@ -95,7 +95,7 @@ bool TspLib::Init (const char *fileName)
             }
 
             if (!strcmp(key, "NAME")) {
-                printf("======== Problem Name: %s", p);
+                printf("Problem Name: %s", p);
             } else if (!strcmp(key, "TYPE")) {
                 printf("Problem Type: %s", p);
                 if (sscanf(p, "%s", field) == EOF || strcmp(field, "TSP")) {
@@ -109,8 +109,8 @@ bool TspLib::Init (const char *fileName)
                     fprintf(stderr, "ERROR: in DIMENSION line\n");
                     goto CLEAN_UP;
                 }
-                _dim = atoi(field);
-                printf("Number of Nodes: %d\n", GetDim());
+                _dimension = atoi(field);
+                printf("Number of Nodes: %d\n", GetDimension());
             } else if (!strcmp(key, "EDGE_WEIGHT_TYPE")) {
                 if (sscanf(p, "%s", field) == EOF) {
                     fprintf(stderr, "ERROR: in EDGE_WEIGHT_TYPE line\n");
@@ -130,16 +130,23 @@ bool TspLib::Init (const char *fileName)
                     goto CLEAN_UP;
                 }
             } else if (!strcmp(key, "NODE_COORD_SECTION")) {
-                if (GetDim() <= 0) {
+                if (GetDimension() <= 0) {
                     fprintf(stderr, "ERROR: dimension not specified\n");
                     goto CLEAN_UP;
                 }
-                _x = new double[GetDim()];
-                _y = new double[GetDim()];
+                _x = new double[GetDimension()];
+                _y = new double[GetDimension()];
                 assert(_x && _y);
-                for (int i = 0; i < GetDim(); i++) {
+                for (int i = 0; i < GetDimension(); i++) {
                     fscanf(in, "%*d %lf %lf", &(_x[i]), &(_y[i]));
                 }
+            } else if (!strcmp(key, "OPTIMAL")) {
+                if (sscanf(p, "%s", field) == EOF) {
+                    fprintf(stderr, "ERROR: in OPTIMAL line\n");
+                    goto CLEAN_UP;
+                }
+                _optimal = atoi(field);
+                printf("Optimal cost: %d\n", GetOptimal());
             }
         }
     }
@@ -192,7 +199,7 @@ void Flipper::Init_1 (int count)
     _reversed = 0;
     _groupSize = (int)(sqrt(count) * GROUPSIZE_FACTOR);
     _numSegments =  (count + _groupSize - 1) / _groupSize;
-    _splitCutoff = _groupSize * SEGMENT_SPLIT_CUTOFF;
+    _splitCutoff = (int)(_groupSize * SEGMENT_SPLIT_CUTOFF);
 
     _parents = new ParentNode[_numSegments];
     _children = new ChildNode[count];
@@ -701,6 +708,16 @@ const int* Evaluator::MakeRand () const
     }
     std::shuffle(_routeBuf, _routeBuf + n, GetRandEnginge());
     return _routeBuf;
+}
+
+double Evaluator::ComputeGap (int cost) const
+{
+    double gap = NAN;
+    if (_tspLib.HasOptimal()) {
+        double opt = _tspLib.GetOptimal();
+        gap = (cost - opt) / opt;
+    }
+    return gap;
 }
 
 void TwoOpt::DoIt ()

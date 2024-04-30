@@ -197,7 +197,6 @@ int CClinkern_tour (int ncount, TspLib *dat, int ecount,
     int i;
     int *tcyc = (int *) NULL;
     graph G;
-    RUsage ru;
 
     if (silent != 1) {
         printf ("linkern ...\n"); fflush (stdout);
@@ -236,11 +235,6 @@ int CClinkern_tour (int ncount, TspLib *dat, int ecount,
                  val, silent);
     if (rval) {
         fprintf (stderr, "repeated_lin_kernighan failed\n"); goto CLEANUP;
-    }
-
-    if (silent != 1) {
-        printf ("Best cycle length: %.0f\n", *val);
-        ru.Report("Lin-Kernighan");
     }
 
     if (outcycle) {
@@ -351,7 +345,7 @@ static int repeated_lin_kernighan (graph *G, TspLib *D, int *cyc,
                 fprintf (stderr, "random_four_swap failed\n"); goto CLEANUP;
             }
         } else {
-            delta = kick_improve (G, D, &E, &Q, F, &winstack, &fstack);
+            delta = (int)kick_improve (G, D, &E, &Q, F, &winstack, &fstack);
         }
 
         fstack.counter = 0;

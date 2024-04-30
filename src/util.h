@@ -33,7 +33,9 @@ public:
     TspLib ();
     ~TspLib ();
     bool Init (const char *fileName);
-    int GetDim () const { return _dim; }
+    int GetDimension () const { return _dimension; }
+    int HasOptimal () const { return (_optimal > 0); }
+    int GetOptimal () const { return _optimal; }
     int EdgeLen (int i, int j) const {
         return (_edgeLen)(_x[i]-_x[j], _y[i]-_y[j]);
     }
@@ -42,7 +44,8 @@ private:
     static int EdgeLen_att (double xd, double yd);
     static int EdgeLen_euclid_ceiling (double xd, double yd);
 private:
-    int     _dim;
+    int     _dimension;
+    int     _optimal;
     double *_x;
     double *_y;
     int   (*_edgeLen)(double i, double j);
@@ -122,8 +125,9 @@ public:
      */
     int GetNear (int i, int j) const { return _nearTbl[i][j]; }
     const TspLib* GetTspLib () const { return &_tspLib; }
-    int GetNumCity () const { return _tspLib.GetDim(); }
+    int GetNumCity () const { return _tspLib.GetDimension(); }
     int GetCost (int i, int j) const { return _tspLib.EdgeLen(i, j); }
+    double ComputeGap (int cost) const;
 private:
     void BuildNeighborLists ();
 private:

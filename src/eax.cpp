@@ -98,7 +98,7 @@ void Indi::FromFlipper (const Evaluator* e, const Flipper* f)
 EAXGA::EAXGA (const Evaluator* eval, int nPop, int nKid)
     : _eval(eval), _matingSeq(new int[nPop + 1]),
       _opt2(nullptr), _cross(nullptr), _pop(nullptr),
-      _numPop(nPop), _numKids(nKid), _silent(false),
+      _numPop(nPop), _numKids(nKid), _verbose(false),
       _numGen(0), _avgCost(0), _stagnGen(0)
 {
     Init();
@@ -112,12 +112,12 @@ EAXGA::~EAXGA ()
     delete[] _pop;
 }
 
-bool EAXGA::Init ()
+void EAXGA::Init ()
 {
     const int n = _eval->GetNumCity();
     if (n <= 0) {
-        fprintf(stderr, "ERROR: #cities = %d\n", n);
-        return false;
+        fprintf(stderr, "ERROR: failed to init EAXGA, #cities = %d\n", n);
+        return;
     }
 
     _best.Define(n);
@@ -127,7 +127,6 @@ bool EAXGA::Init ()
     for (int i = 0; i < _numPop; ++i) {
         _pop[i].Define(n);
     }
-    return true;
 }
 
 void EAXGA::DoIt ()
@@ -143,7 +142,7 @@ void EAXGA::DoIt ()
 
     while (1) {
         SelectBest();
-        if (!_silent) {
+        if (_verbose) {
             printf("%d: %lld %lf\n", _numGen, (long long)_best._cost, _avgCost);
         }
 

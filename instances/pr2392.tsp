@@ -1,5 +1,5 @@
 NAME : pr2392
-COMMENT : Best is 378032
+OPTIMAL : 378032
 COMMENT : 2392-city problem (Padberg/Rinaldi)
 TYPE : TSP
 DIMENSION : 2392

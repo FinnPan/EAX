@@ -1,0 +1,56 @@
+================================================================================
+tsphurt focuses on robust and readable implementation of common TSP heuristics:
+  1. 2-Opt (2-exchange local search)
+  2. GA-EAX (GA with Edge Assembly Crossover)
+  3. CLK (Chained Lin-Kernighan)
+================================================================================
+
+Contents of the directory tree are below.
+
+src/ is source codes. Some are apapted from GA-EAX by Yuichi Nagata
+and Concorde by Applegate, Bixby, Chvatal, and Cook.
+
+archive/ is original codes, which are downloaded from "github.com/nagata-yuichi/GA-EAX"
+and "www.math.uwaterloo.ca/tsp/concorde/downloads/codes/src/co031219.tgz".
+
+doc/ is papers, which are referenced to implement these TSP heuristics.
+
+instances/ is the instances of TSP problems, .tsp files, which is a widespread format.
+
+tsphurt is available on UNIX-like systems and Windows.
+
+On Unix-like systems, GCC 7.3 and cmake 3.15, or later version are required.
+GNU make is also required. Open the shell and then run the following commands:
+    cd xxxx/tsphurt
+    mkdir build
+    cd build
+    cmake .. -DCMAKE_BUILD_TYPE=release
+    make
+
+On Windows, Visual Studio 2019 or later version and its C++ components
+are required. Open the "x64 Native Tools Command Prompt" and
+then run the following commands:
+    cd xxxx/tsphurt
+    md build
+    cd build
+    cmake .. -DCMAKE_BUILD_TYPE=release -G"Ninja"
+    ninja
+
+After compiling, a binary named tsp or tsp.exe will be in build/.
+Run it directly to known uasge of this command line utility.
+
+On Unix-like systems, run any of the following commands:
+    make test-2opt
+    make test-eax
+    make test-clk
+
+On Windows, run any of the following commands:
+    ninja test-2opt
+    ninja test-eax
+    ninja test-clk
+
+After running, statistics will be printed in terminal.
+
+Thanks.
+
+== END OF FILE ==

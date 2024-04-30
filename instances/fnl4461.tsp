@@ -1,5 +1,5 @@
 NAME : fnl4461
-COMMENT : Best is 182566
+OPTIMAL : 182566
 COMMENT : Die 5 neuen Laender Deutschlands (Ex-DDR) (Bachem/Wottawa)
 TYPE : TSP
 DIMENSION : 4461

@@ -27,7 +27,6 @@ public:
     int _cost;
 };
 
-
 /* TODO:
  * 1. Diversity preservation: Entropy
  * 2. E-sets Type: Block2
@@ -89,7 +88,6 @@ private:
     int* _routeBuf;
 };
 
-
 class EAXGA {
 public:
     EAXGA (const Evaluator* eval, int nPop = 100, int nKid = 30);
@@ -102,10 +100,10 @@ public:
     int GetKidsNum () const { return _numKids; }
     int GetGenNum () const { return _numGen; }
     double GetAvgCost () const { return _avgCost; }
-    void SetSilent (bool s) { _silent = s; }
+    void SetVerbose (bool s) { _verbose = s; }
 
 private:
-    bool Init ();
+    void Init ();
     void SelectBest ();
     bool ShouldTerminate ();
     void SelectForMating ();
@@ -118,7 +116,7 @@ private:
     Indi _best;
     const int _numPop;
     const int _numKids;
-    bool _silent;
+    bool _verbose;
     int _numGen;
     double _avgCost;
     int _stagnGen;
