@@ -1,27 +1,91 @@
 #include "util.h"
 
+#ifdef WIN32
+#include <windows.h>
+#include <psapi.h>
+#else
+#include <sys/stat.h>
+#include <sys/sysinfo.h>
+#endif
+
 namespace th { /* tsp heuristics */
+
+RUsage::RUsage ()
+{
+    Reset();
+}
 
 RUsage::~RUsage ()
 {
-    if (!_tagRAII.empty()) {
-        Report(_tagRAII.c_str());
-    }
+}
+
+void RUsage::Reset ()
+{
+    _dayTime0 = GetTimeOfDay();
+    _cpuTime0 = GetTimeofCPU();
 }
 
 void RUsage::Report (const char* tag) const
 {
     assert(tag);
-    TimePoint end = Clock::now();
-    std::chrono::duration<double> elapsed = end - _start;
-    printf("[%s] Elapsed-time: %.3fs.\n", tag, elapsed.count());
+
+    std::chrono::duration<double> elapsedTime = GetTimeOfDay() - _dayTime0;
+
+    long cpuTime = GetTimeofCPU() - _cpuTime0;
+
+    double physMem, virtMem;
+    GetProcessMem(physMem, virtMem);
+
+    printf("[%s] Elapsed = %.2fs; CPU = %lds; MEM = %.1fM\n",
+            tag, elapsedTime.count(), cpuTime, physMem);
     fflush(stdout);
 }
 
-void RUsage::SetRAIIReport (const char* tagRAII)
+long RUsage::GetTimeofCPU ()
 {
-    assert(tagRAII);
-    _tagRAII = tagRAII;
+    long cpu = 0;
+
+#ifdef WIN32
+
+#else
+    struct rusage ru;
+    getrusage(RUSAGE_SELF, &ru);
+    cpu = ru.ru_utime.tv_sec + ru.ru_stime.tv_sec;
+#endif
+
+    return cpu;
+}
+
+void RUsage::GetProcessMem (double& physMem, double& virtMem)
+{
+    physMem = 0.0;
+    virtMem = 0.0;
+
+#ifdef WIN32
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+        physMem = pmc.WorkingSetSize / 1024.0 / 1024.0;
+        virtMem = pmc.PagefileUsage / 1024.0 / 1024.0;
+    }
+#else
+    FILE* fd = fopen("/proc/self/status", "r");
+    if (fd) {
+        char line[256];
+        char key[128];
+        char unit[32];
+        unsigned long value;
+        while (fgets(line, 256, fp)) {
+            if (strstr(line, "Vm") && sscanf(line, "%s %lu %s", key, &value, unit) == 3) {
+                if (strstr(key, "VmRSS")) {
+                    physMem = value / 1024.0;
+                } else if (strstr(key, "VmSize")) {
+                    virtMem = value / 1024.0;
+                }
+            }
+        }
+        fclose(fd);
+    }
+#endif
 }
 
 TspLib::TspLib () :

@@ -14,19 +14,22 @@
 
 namespace th { /* tsp heuristics */
 
-/* Report elapsed time. */
+/* Report elapsed time, cpu time, memory usage. */
 class RUsage {
     using Clock = std::chrono::system_clock;
     using TimePoint = std::chrono::time_point<Clock>;
 public:
-    RUsage () { Reset(); };
+    RUsage ();
     ~RUsage ();
-    void Reset () { _start = Clock::now(); }
+    void Reset ();
     void Report (const char* tag) const;
-    void SetRAIIReport (const char* tagRAII);
 private:
-    TimePoint   _start;
-    std::string _tagRAII;
+    static TimePoint GetTimeOfDay () { return Clock::now(); }
+    static long GetTimeofCPU ();
+    static void GetProcessMem (double& physMem, double& virtMem);
+private:
+    TimePoint _dayTime0;
+    long _cpuTime0;
 };
 
 /* Parse .tsp file, adapted from Concorde. */

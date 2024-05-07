@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
     if (res) {
         ru.Report(HeuristicKey2Str(hk));
         double gap = g_eval->ComputeGap(g_bestCost);
-        printf("[%s] Result: iter = %d, best = %d, avg = %0.3f, gap = %.3f%%.\n",
+        printf("[%s results] iter = %d; best = %d; avg = %0.3f; gap = %.3f%%\n",
                 HeuristicKey2Str(hk), g_maxIter, g_bestCost, g_avgCost, 100*gap);
     }
     return 0;
