@@ -102,7 +102,7 @@ typedef struct flippair {
 } flippair;
 
 typedef struct flipstack {
-    flippair *stack;
+    flippair *stack{nullptr};
     int counter;
     int max;
 } flipstack;

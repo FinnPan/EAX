@@ -25,11 +25,11 @@ public:
     void Report (const char* tag) const;
 private:
     static TimePoint GetTimeOfDay () { return Clock::now(); }
-    static long GetTimeofCPU ();
+    static double GetTimeofCPU ();
     static void GetProcessMem (double& physMem, double& virtMem);
 private:
     TimePoint _dayTime0;
-    long _cpuTime0;
+    double _cpuTime0;
 };
 
 /* Parse .tsp file, adapted from Concorde. */

@@ -4,8 +4,7 @@
 #include <windows.h>
 #include <psapi.h>
 #else
-#include <sys/stat.h>
-#include <sys/sysinfo.h>
+#include <sys/resource.h>
 #endif
 
 namespace th { /* tsp heuristics */
@@ -31,26 +30,28 @@ void RUsage::Report (const char* tag) const
 
     std::chrono::duration<double> elapsedTime = GetTimeOfDay() - _dayTime0;
 
-    long cpuTime = GetTimeofCPU() - _cpuTime0;
+    double cpuTime = GetTimeofCPU() - _cpuTime0;
 
     double physMem, virtMem;
     GetProcessMem(physMem, virtMem);
 
-    printf("[%s] Elapsed = %.2fs; CPU = %lds; MEM = %.1fM\n",
+    printf("[%s] Elapsed = %.2fs; CPU = %.2fs; MEM = %.1fM\n",
             tag, elapsedTime.count(), cpuTime, physMem);
     fflush(stdout);
 }
 
-long RUsage::GetTimeofCPU ()
+double RUsage::GetTimeofCPU ()
 {
-    long cpu = 0;
+    double cpu = 0.0;
 
 #ifdef WIN32
 
 #else
     struct rusage ru;
-    getrusage(RUSAGE_SELF, &ru);
-    cpu = ru.ru_utime.tv_sec + ru.ru_stime.tv_sec;
+    if (getrusage(RUSAGE_SELF, &ru) == 0) {
+        cpu += ru.ru_utime.tv_sec + ru.ru_utime.tv_usec / 1000000.0;
+        cpu += ru.ru_stime.tv_sec + ru.ru_stime.tv_usec / 1000000.0;
+    }
 #endif
 
     return cpu;
@@ -74,7 +75,7 @@ void RUsage::GetProcessMem (double& physMem, double& virtMem)
         char key[128];
         char unit[32];
         unsigned long value;
-        while (fgets(line, 256, fp)) {
+        while (fgets(line, 256, fd)) {
             if (strstr(line, "Vm") && sscanf(line, "%s %lu %s", key, &value, unit) == 3) {
                 if (strstr(key, "VmRSS")) {
                     physMem = value / 1024.0;
