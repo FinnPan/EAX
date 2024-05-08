@@ -17,10 +17,10 @@ doc/ is papers, which are referenced to implement these TSP heuristics.
 
 instances/ is the instances of TSP problems, .tsp files, which is a widespread format.
 
-tsphurt is available on UNIX-like systems and Windows.
+tsphurt is available on Linux and Windows.
 
-On Unix-like systems, GCC 10.2 and cmake 3.15, or later version are required.
-GNU make is also required. Open the shell and then run the following commands:
+On Linux, GCC 10.2 and CMake 3.15, or later version are required.
+Open the shell and then run the following commands:
     cd xxxx/tsphurt
     mkdir build
     cd build
@@ -39,7 +39,7 @@ then run the following commands:
 After compiling, a binary named tsp or tsp.exe will be in build/.
 Run it directly to known uasge of this command line utility.
 
-On Unix-like systems, run any of the following commands:
+On Linux, run any of the following commands:
     make test-2opt
     make test-eax
     make test-clk
@@ -54,3 +54,4 @@ After running, statistics will be printed in terminal.
 Thanks.
 
 == END OF FILE ==
+
