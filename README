@@ -19,12 +19,12 @@ instances/ is the instances of TSP problems, .tsp files, which is a widespread f
 
 tsphurt is available on UNIX-like systems and Windows.
 
-On Unix-like systems, GCC 7.3 and cmake 3.15, or later version are required.
+On Unix-like systems, GCC 10.2 and cmake 3.15, or later version are required.
 GNU make is also required. Open the shell and then run the following commands:
     cd xxxx/tsphurt
     mkdir build
     cd build
-    cmake .. -DCMAKE_BUILD_TYPE=release
+    cmake ..
     make
 
 On Windows, Visual Studio 2019 or later version and its C++ components
@@ -33,7 +33,7 @@ then run the following commands:
     cd xxxx/tsphurt
     md build
     cd build
-    cmake .. -DCMAKE_BUILD_TYPE=release -G"Ninja"
+    cmake .. -G"Ninja"
     ninja
 
 After compiling, a binary named tsp or tsp.exe will be in build/.

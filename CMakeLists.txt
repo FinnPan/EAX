@@ -3,12 +3,11 @@ project(tsp VERSION 0.0.2 LANGUAGES CXX)
 
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    set(my_cxxflags "-Wall")
-    set(extra_libs m)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-    set(my_cxxflags "/W2")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /W2")
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${my_cxxflags}")
+set(CMAKE_BUILD_TYPE Release)
 
 
 add_library(base_lib OBJECT
@@ -16,11 +15,10 @@ add_library(base_lib OBJECT
     src/eax.cpp
     src/clk.cpp
 )
-link_libraries(${extra_libs} base_lib)
-
 
 set(binary_name tsp)
 add_executable(${binary_name} src/${binary_name}.cpp)
+target_link_libraries(${binary_name} base_lib)
 
 
 set(instances_path ${CMAKE_SOURCE_DIR}/instances)

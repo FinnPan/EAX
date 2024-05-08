@@ -25,7 +25,7 @@ public:
     void Report (const char* tag) const;
 private:
     static TimePoint GetTimeOfDay () { return Clock::now(); }
-    static double GetTimeofCPU ();
+    static double GetTimeOfCPU ();
     static void GetProcessMem (double& physMem, double& virtMem);
 private:
     TimePoint _dayTime0;

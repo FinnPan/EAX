@@ -21,7 +21,7 @@ RUsage::~RUsage ()
 void RUsage::Reset ()
 {
     _dayTime0 = GetTimeOfDay();
-    _cpuTime0 = GetTimeofCPU();
+    _cpuTime0 = GetTimeOfCPU();
 }
 
 void RUsage::Report (const char* tag) const
@@ -30,7 +30,7 @@ void RUsage::Report (const char* tag) const
 
     std::chrono::duration<double> elapsedTime = GetTimeOfDay() - _dayTime0;
 
-    double cpuTime = GetTimeofCPU() - _cpuTime0;
+    double cpuTime = GetTimeOfCPU() - _cpuTime0;
 
     double physMem, virtMem;
     GetProcessMem(physMem, virtMem);
@@ -40,12 +40,23 @@ void RUsage::Report (const char* tag) const
     fflush(stdout);
 }
 
-double RUsage::GetTimeofCPU ()
+double RUsage::GetTimeOfCPU ()
 {
     double cpu = 0.0;
 
 #ifdef WIN32
+    auto ConvertTimeFormat = [](const FILETIME* fTime) {
+        SYSTEMTIME sTime;
+        FileTimeToSystemTime(fTime, &sTime);
+        double t = sTime.wHour * 3600.0 + sTime.wMinute * 60.0 +
+                   sTime.wSecond + sTime.wMilliseconds / 1000.0;
+        return t;
+    };
 
+    FILETIME createTime, exitTime, kernelTime, userTime;
+    if (GetProcessTimes(GetCurrentProcess(), &createTime, &exitTime, &kernelTime, &userTime)) {
+        cpu = ConvertTimeFormat(&kernelTime) + ConvertTimeFormat(&userTime);
+    }
 #else
     struct rusage ru;
     if (getrusage(RUSAGE_SELF, &ru) == 0) {
