@@ -38,7 +38,7 @@
 #include <list>
 #include "clk.h"
 
-namespace th { /* tsp heuristics */
+namespace thu { /* tsp heuristics */
 
 #define MY_MALLOC(num, type)                                              \
     (type*)malloc((size_t)(num) * sizeof(type))
@@ -1607,4 +1607,4 @@ static void rand_cycle (int ncount, int *cyc)
     }
 }
 
-} /* namespace th */
+} /* namespace thu */

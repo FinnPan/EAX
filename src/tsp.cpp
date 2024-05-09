@@ -2,7 +2,7 @@
 #include "eax.h"
 #include "clk.h"
 
-using namespace th;
+using namespace thu;
 
 static const char *g_progname;
 static Evaluator* g_eval;

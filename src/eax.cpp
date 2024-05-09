@@ -1,6 +1,6 @@
 #include "eax.h"
 
-namespace th { /* tsp heuristics */
+namespace thu { /* tsp heuristics */
 
 Indi::Indi ()
     : _numCity(0), _link(nullptr), _cost(std::numeric_limits<int>::max())
@@ -1032,4 +1032,4 @@ void Cross::GoToBest (Indi& kid, int bestAppliedCycle)
     }
 }
 
-} /* namespace th */
+} /* namespace thu */

@@ -18,13 +18,13 @@
 
 #include "util.h"
 
-namespace th { /* tsp heuristics */
+namespace thu { /* tsp heuristics */
 
 int
     CClinkern_tour (int ncount, TspLib *dat, int ecount,
         int *elist, int stallcount, int repeatcount, int *incycle,
         int *outcycle, double *val, int silent);
 
-} /* namespace th */
+} /* namespace thu */
 
 #endif  /* __LINKERN_H */

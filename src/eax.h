@@ -3,7 +3,7 @@
 
 #include "util.h"
 
-namespace th { /* tsp heuristics */
+namespace thu { /* tsp heuristics */
 
 class Indi {
 public:
@@ -122,6 +122,6 @@ private:
     int _stagnGen;
 };
 
-} /* namespace th */
+} /* namespace thu */
 
 #endif /*__EAX_H */

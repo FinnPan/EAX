@@ -12,7 +12,7 @@
 #include <vector>
 #include <queue>
 
-namespace th { /* tsp heuristics */
+namespace thu { /* tsp heuristics */
 
 /* Report elapsed time, cpu time, memory usage. */
 class RUsage {
@@ -160,6 +160,6 @@ private:
     Flipper          _flipper;
 };
 
-} /* namespace th */
+} /* namespace thu */
 
 #endif /* __UTIL_H */

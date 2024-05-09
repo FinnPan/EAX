@@ -7,7 +7,7 @@
 #include <sys/resource.h>
 #endif
 
-namespace th { /* tsp heuristics */
+namespace thu { /* tsp heuristics */
 
 RUsage::RUsage ()
 {
@@ -850,4 +850,4 @@ void TwoOpt::TwoExchange ()
     } while(improved);
 }
 
-} /* namespace th */
+} /* namespace thu */
