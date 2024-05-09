@@ -1,7 +1,8 @@
 build/
 *vscode*/
-archive/concorde*/
-archive/GA-EAX*/
+archive/concorde-*/
+archive/GA-EAX-*/
+archive/LKH-*/
 
 # Prerequisites
 *.d

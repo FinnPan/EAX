@@ -1,43 +1,45 @@
 ================================================================================
-tsphurt focuses on robust and readable implementation of common TSP heuristics:
+tsphurt focuses on robust and readable implementations of TSP heuristics:
   1. 2-Opt (2-exchange local search)
   2. GA-EAX (GA with Edge Assembly Crossover)
   3. CLK (Chained Lin-Kernighan)
+  4. LKH (Lin-Kernighan-Helsgaun)
 ================================================================================
 
 Contents of the directory tree are below.
 
-src/ is source codes. Some are apapted from GA-EAX by Yuichi Nagata
-and Concorde by Applegate, Bixby, Chvatal, and Cook.
+src/ is source codes. Some are adapted from:
+    GA-EAX by Yuichi Nagata,
+    Concorde by Applegate, Bixby, Chvatal, and Cook.
 
-archive/ is original codes, which are downloaded from "github.com/nagata-yuichi/GA-EAX"
-and "www.math.uwaterloo.ca/tsp/concorde/downloads/codes/src/co031219.tgz".
+archive/ is original codes, which are downloaded from:
+    "github.com/nagata-yuichi/GA-EAX",
+    "www.math.uwaterloo.ca/tsp/concorde/downloads/codes/src/co031219.tgz",
+    "webhotel4.ruc.dk/~keld/research/LKH/".
 
 doc/ is papers, which are referenced to implement these TSP heuristics.
 
-instances/ is the instances of TSP problems, .tsp files, which is a widespread format.
+instances/ is instances of TSP problems, ".tsp" files, which is a widespread format.
 
 tsphurt is available on Linux and Windows.
 
 On Linux, GCC 10.2 and CMake 3.15, or later version are required.
 Open the shell and then run the following commands:
-    cd xxxx/tsphurt
-    mkdir build
-    cd build
+    git clone https://github.com/panfeng5/tsphurt.git
+    cd tsphurt && mkdir build && cd build
     cmake ..
     make
 
 On Windows, Visual Studio 2019 or later version and its C++ components
 are required. Open the "x64 Native Tools Command Prompt" and
 then run the following commands:
-    cd xxxx/tsphurt
-    md build
-    cd build
+    git clone https://github.com/panfeng5/tsphurt.git
+    cd tsphurt && md build && cd build
     cmake .. -G"Ninja"
     ninja
 
 After compiling, a binary named tsp or tsp.exe will be in build/.
-Run it directly to known uasge of this command line utility.
+Run it directly to known usage of this command line utility.
 
 On Linux, run any of the following commands:
     make test-2opt
@@ -54,4 +56,3 @@ After running, statistics will be printed in terminal.
 Thanks.
 
 == END OF FILE ==
-

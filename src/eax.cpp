@@ -204,7 +204,7 @@ void EAXGA::SelectForMating ()
     for (int i = 0; i < _numPop; i++) {
         _matingSeq[i] = i;
     }
-    std::shuffle(_matingSeq, _matingSeq + _numPop, _eval->GetRandEnginge());
+    std::shuffle(_matingSeq, _matingSeq + _numPop, _eval->GetRandEngine());
     _matingSeq[_numPop] = _matingSeq[0];
 }
 
@@ -332,7 +332,7 @@ void Cross::DoIt (Indi& kid, Indi& pa2, int nKids)
     for (int i = 0; i < _numABcycle; i++) {
         _permuABCycle[i] = i;
     }
-    std::shuffle(_permuABCycle, _permuABCycle + _numABcycle, _eval->GetRandEnginge());
+    std::shuffle(_permuABCycle, _permuABCycle + _numABcycle, _eval->GetRandEngine());
 
     /* main loop to generate nKids kids */
     for (int j = 0; j < nKids; ++j) {

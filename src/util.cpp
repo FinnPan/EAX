@@ -268,11 +268,11 @@ void Flipper::Init_0 ()
 
 void Flipper::Init_1 (int count)
 {
-    constexpr double GROUPSIZE_FACTOR = 0.50;
+    constexpr double GROUP_SIZE_FACTOR = 0.50;
     constexpr double SEGMENT_SPLIT_CUTOFF = 0.30;
 
     _reversed = 0;
-    _groupSize = (int)(sqrt(count) * GROUPSIZE_FACTOR);
+    _groupSize = (int)(sqrt(count) * GROUP_SIZE_FACTOR);
     _numSegments =  (count + _groupSize - 1) / _groupSize;
     _splitCutoff = (int)(_groupSize * SEGMENT_SPLIT_CUTOFF);
 
@@ -422,12 +422,12 @@ void Flipper::Flip (int x, int y)
     ChildNode *xPrev = xc->adj[xBackward];
     ChildNode *yNext = yc->adj[yForward];
 
-    if (SameSegmant(xc, yc)) {
+    if (SameSegment(xc, yc)) {
         SameSegmentFlip(xc, yc);
         return;
     }
 
-    if (SameSegmant(yNext, xPrev)) {
+    if (SameSegment(yNext, xPrev)) {
         SameSegmentFlip(yNext, xPrev);
         Reverse();
         return;
@@ -441,10 +441,10 @@ void Flipper::Flip (int x, int y)
 
     if (xPrev->parent == xc->parent) {
         SegmentSplit(xc->parent, xPrev, xc, 0);
-        if (SameSegmant(xc, yc)) {
+        if (SameSegment(xc, yc)) {
             SameSegmentFlip(xc, yc);
             return;
-        } else if (SameSegmant(yNext, xPrev)) {
+        } else if (SameSegment(yNext, xPrev)) {
             SameSegmentFlip(yNext, xPrev);
             Reverse();
             return;
@@ -453,10 +453,10 @@ void Flipper::Flip (int x, int y)
 
     if (yNext->parent == yc->parent) {
         SegmentSplit(yc->parent, yc, yNext, 0);
-        if (SameSegmant(xc, yc)) {
+        if (SameSegment(xc, yc)) {
             SameSegmentFlip(xc, yc);
             return;
-        } else if (SameSegmant(yNext, xPrev)) {
+        } else if (SameSegment(yNext, xPrev)) {
             SameSegmentFlip(yNext, xPrev);
             Reverse();
             return;
@@ -485,7 +485,7 @@ void Flipper::Flip_0 ( ChildNode *xc,  ChildNode *yc)
     }
 }
 
-bool Flipper::SameSegmant (ChildNode *a, ChildNode *b) const
+bool Flipper::SameSegment (ChildNode *a, ChildNode *b) const
 {
     if (a->parent == b->parent) {
         if (IsBackward(a->parent)) {
@@ -695,7 +695,7 @@ bool Evaluator::Init (const char filename[])
     return true;
 }
 
-/* times: O(n*n*logk)
+/* times: O(n*n*log_k)
  * space: O(n*k)
  */
 void Evaluator::BuildNeighborLists ()
@@ -781,7 +781,7 @@ const int* Evaluator::MakeRand () const
     for (int i = 0; i < n; ++i) {
         _routeBuf[i] = i;
     }
-    std::shuffle(_routeBuf, _routeBuf + n, GetRandEnginge());
+    std::shuffle(_routeBuf, _routeBuf + n, GetRandEngine());
     return _routeBuf;
 }
 

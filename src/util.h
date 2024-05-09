@@ -57,9 +57,9 @@ private:
 };
 
 /* Two-level tree, adapted from Concorde.
-   This is desribed in the paper "Data structures for traveling
+   This is described in the paper "Data structures for traveling
    salesman" by Fredman, Johnson, McGeoch, and Ostheimer in 1995.
-   Uses the "groupsize" approach described in the paper. */
+   Uses the "group_size" approach described in the paper. */
 class Flipper {
     struct ChildNode;
     struct ParentNode {
@@ -96,7 +96,7 @@ private:
     void Reverse () { _reversed ^= 1; }
     bool IsBackward (ParentNode* p) const { return (_reversed^(p->rev)); }
     bool IsForward (ParentNode* p) const { return !IsBackward(p); }
-    bool SameSegmant (ChildNode *a, ChildNode *b) const;
+    bool SameSegment (ChildNode *a, ChildNode *b) const;
     void SameSegmentFlip (ChildNode *a, ChildNode *b) const;
     void ConsecutiveSegmentFlip (ParentNode *a, ParentNode *b) const;
     /* split between a and aPrev */
@@ -122,8 +122,8 @@ public:
     int DoIt (const int* route) const;
     int DoIt (const Flipper* f) const;
     const int* MakeRand () const;
-    RandEngine& GetRandEnginge () const { return *_rand; }
-    RandType GetRand () const { return GetRandEnginge()(); }
+    RandEngine& GetRandEngine () const { return *_rand; }
+    RandType GetRand () const { return GetRandEngine()(); }
     int GetMaxNumNear () const { return _maxNumNear; }
     /* return jth-nearest neighbor of i
      * j is valid from 0 to GetMaxNumNear()-1.
@@ -144,7 +144,7 @@ private:
 };
 
 /* 2-exchange speeded up by neighbor-lists.
-   This is desribed in Section 3.3 of "The traveling salesman problem:
+   This is described in Section 3.3 of "The traveling salesman problem:
    a case study in local optimization" by Johnson, David, Lyle in 1997. */
 class TwoOpt {
 public:
