@@ -2,10 +2,8 @@
 #include "eax.h"
 #include "clk.h"
 
-using namespace thu;
-
 static const char *g_progname;
-static Evaluator* g_eval;
+static thu::Evaluator* g_eval;
 static int g_maxIter;
 static int g_bestCost;
 static double g_avgCost;
@@ -41,13 +39,13 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    Evaluator eval;
+    thu::Evaluator eval;
     if (!eval.Init(argv[2])) {
         return 1;
     }
     g_eval = &eval;
 
-    RUsage ru;
+    thu::RUsage ru;
     g_bestCost = INT_MAX;
     bool res = false;
     switch (hk) {
@@ -175,12 +173,12 @@ bool ProcCLK (int argc, char **argv)
 
 bool Run2OPT (int times)
 {
-    TwoOpt opt2(g_eval);
+    thu::TwoOpt opt2(g_eval);
     double totalCost = 0;
     g_maxIter = times;
     for (int i = 0; i < g_maxIter; i++) {
         opt2.DoIt();
-        int cost = g_eval->DoIt(opt2.GetFlipper());
+        int cost = g_eval->ComputeCost(opt2.GetFlipper());
         totalCost += cost;
         if (cost < g_bestCost) {
             g_bestCost = cost;
@@ -192,11 +190,11 @@ bool Run2OPT (int times)
 
 bool RunEAX (bool verbose)
 {
-    EAXGA eax(g_eval);
+    thu::GA_EAX eax(g_eval);
     eax.SetVerbose(verbose);
     eax.DoIt();
     g_maxIter = eax.GetGenNum();
-    g_bestCost = eax.GetBestIndi()._cost;
+    g_bestCost = eax.GetBestCost();
     g_avgCost = eax.GetAvgCost();
     return true;
 }
@@ -236,7 +234,7 @@ bool RunCLK (int times, bool verbose)
     assert(listIdx == 2*edgeNum);
 
     srand((unsigned int)time(0));
-    TspLib* dat = const_cast<TspLib*>(g_eval->GetTspLib());
+    auto* dat = const_cast<thu::TspLib*>(g_eval->GetTspLib());
     int in_repeater = num;
     double totalCost = 0;
     g_maxIter = times;

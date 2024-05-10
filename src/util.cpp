@@ -652,22 +652,22 @@ void Flipper::SegmentSplit (ParentNode *p, ChildNode *aPrev, ChildNode *a,
 }
 
 Evaluator::Evaluator () :
-    _maxNumNear(50), _nearTbl(nullptr), _routeBuf(nullptr)
+    _maxNumNear(50), _randBuf(nullptr), _nearTbl(nullptr)
 {
     std::random_device rd;
-    _rand = new RandEngine(rd());
+    _randEng = new RandEngine(rd());
 }
 
 Evaluator::~Evaluator ()
 {
+    delete _randEng;
+    delete[] _randBuf;
+
     const int n = GetNumCity();
     for (int i = 0; i < n; ++i) {
         delete[] _nearTbl[i];
     }
     delete[] _nearTbl;
-
-    delete[] _routeBuf;
-    delete _rand;
 }
 
 bool Evaluator::Init (const char filename[])
@@ -681,23 +681,24 @@ bool Evaluator::Init (const char filename[])
         return false;
     }
 
-    /* allocate memory */
     const int n = GetNumCity();
+    _randBuf = new int[n];
+    for (int i = 0; i < n; ++i) {
+        _randBuf[i] = i;
+    }
+
     const int maxNumNear = GetMaxNumNear();
     _nearTbl = new int*[n];
     for (int i = 0; i < n; ++i) {
         _nearTbl[i] = new int[maxNumNear];
     }
-    _routeBuf = new int[n];
-
     BuildNeighborLists();
 
     return true;
 }
 
 /* times: O(n*n*log_k)
- * space: O(n*k)
- */
+ * space: O(n*k) */
 void Evaluator::BuildNeighborLists ()
 {
     const int n = GetNumCity();
@@ -750,7 +751,7 @@ void Evaluator::BuildNeighborLists ()
     ru.Report("neighbor-lists");
 }
 
-int Evaluator::DoIt (const int* route) const
+int Evaluator::ComputeCost (const int* route) const
 {
     const int n = GetNumCity();
     int cost = 0;
@@ -760,29 +761,23 @@ int Evaluator::DoIt (const int* route) const
     return cost;
 }
 
-int Evaluator::DoIt (const Flipper* f) const
+int Evaluator::ComputeCost (const Flipper* f) const
 {
     int cost = 0;
-    int c1, c2;
-
-    c1 = 0;
+    int c1 = 0;
     do {
-        c2 = f->Next(c1);
+        int c2 = f->Next(c1);
         cost += GetCost(c1, c2);
         c1 = c2;
     } while (c1 != 0);
-
     return cost;
 }
 
 const int* Evaluator::MakeRand () const
 {
     const int n = GetNumCity();
-    for (int i = 0; i < n; ++i) {
-        _routeBuf[i] = i;
-    }
-    std::shuffle(_routeBuf, _routeBuf + n, GetRandEngine());
-    return _routeBuf;
+    std::shuffle(_randBuf, _randBuf + n, GetRandEngine());
+    return _randBuf;
 }
 
 double Evaluator::ComputeGap (int cost) const

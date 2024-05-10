@@ -2,33 +2,134 @@
 
 namespace thu { /* tsp heuristics */
 
-Indi::Indi ()
-    : _numCity(0), _link(nullptr), _cost(std::numeric_limits<int>::max())
+GA_EAX::GA_EAX (const Evaluator* eval, int nPop, int nKid)
+    : _eval(eval), _numPop(nPop), _numKid(nKid),
+      _2opt(nullptr), _cross(nullptr), _pop(nullptr), _matingSeq(nullptr),
+      _verbose(false), _numGen(0), _avgCost(0), _stagnateGen(0)
 {
+    const int n = eval->GetNumCity();
+    if (n <= 0) {
+        fprintf(stderr, "ERROR: failed to init GA_EAX, #cities = %d\n", n);
+        return;
+    }
+
+    _2opt = new TwoOpt(eval);
+    _cross = new Cross(eval, nPop);
+    _pop = new Indi[nPop+1];
+    for (int i = 0; i < nPop+1; ++i) {
+        _pop[i].Init(n);
+    }
+    _matingSeq = new int[nPop];
+
+    for (int i = 0; i < nPop; ++i) {
+        _matingSeq[i] = i;
+    }
 }
 
-Indi::~Indi ()
+GA_EAX::~GA_EAX ()
 {
-    for (int i = 0; i < _numCity; ++i) {
+    delete _2opt;
+    delete _cross;
+    delete[] _pop;
+    delete _matingSeq;
+}
+
+void GA_EAX::DoIt ()
+{
+    _numGen = 0;
+    _stagnateGen = 0;
+
+    for (int i = 0; i < _numPop; ++i) {
+        _2opt->DoIt();
+        _pop[i].FromFlipper(_eval, _2opt->GetFlipper());
+    }
+
+    do {
+        SelectBest();
+        if (_verbose) {
+            printf("=%d: %d %.3f\n", _numGen, GetBestIndi().GetCost(), _avgCost);
+        }
+
+        if (ShouldTerminate()) {
+            break;
+        }
+
+        std::shuffle(_matingSeq, _matingSeq+_numPop, _eval->GetRandEngine());
+        for (int i = 0; i < _numPop; ++i) {
+            int idx0 = _matingSeq[i];
+            int idx1 = _matingSeq[(i+1)%_numPop];
+            _cross->DoIt(_pop[idx0], _pop[idx1], _numKid);
+        }
+
+        ++_numGen;
+    } while (1);
+}
+
+void GA_EAX::SelectBest ()
+{
+    _avgCost = 0.0;
+
+    const int stockBestCost = GetBestIndi().GetCost();
+    int bestIndex = 0;
+    int bestCost = _pop[0].GetCost();
+
+    for (int i = 0; i < _numPop; ++i) {
+        _avgCost += _pop[i].GetCost();
+        if (_pop[i].GetCost() < bestCost) {
+            bestIndex = i;
+            bestCost = _pop[i].GetCost();
+        }
+    }
+
+    _avgCost /= _numPop;
+    GetBestIndi() = _pop[bestIndex];
+
+    if (GetBestIndi().GetCost() < stockBestCost) {
+        _stagnateGen = 0;
+    } else {
+        _stagnateGen++;
+    }
+}
+
+bool GA_EAX::ShouldTerminate ()
+{
+    if (_avgCost - GetBestIndi().GetCost() < 0.001) {
+        return true;
+    }
+
+    if (_stagnateGen > (1500 / _numKid)) {
+        return true;
+    }
+
+    return false;
+}
+
+GA_EAX::Indi::Indi ()
+    : _n(0), _link(nullptr), _cost(std::numeric_limits<int>::max())
+{}
+
+GA_EAX::Indi::~Indi ()
+{
+    for (int i = 0; i < _n; ++i) {
         delete[] _link[i];
     }
     delete[] _link;
 }
 
-void Indi::Define (int n)
+void GA_EAX::Indi::Init (int n)
 {
-    _numCity = n;
+    _n = n;
     _link = new int*[n];
     for (int i = 0; i < n; ++i) {
         _link[i] = new int[2];
     }
 }
 
-Indi& Indi::operator= (const Indi& rhs)
+GA_EAX::Indi& GA_EAX::Indi::operator= (const Indi& rhs)
 {
     if (this != &rhs) {
-        _numCity = rhs._numCity;
-        for (int i = 0; i < _numCity; ++i) {
+        _n = rhs._n;
+        for (int i = 0; i < _n; ++i) {
             for (int j = 0; j < 2; ++j) {
                 _link[i][j] = rhs._link[i][j];
             }
@@ -38,10 +139,18 @@ Indi& Indi::operator= (const Indi& rhs)
     return *this;
 }
 
-void Indi::ToArray (int* arr, int* arrInv) const
+void GA_EAX::Indi::ComputeCost (const Evaluator* e)
+{
+    _cost = 0;
+    for (int i = 0; i < _n; ++i) {
+        _cost += e->GetCost(i, _link[i][1]);
+    }
+}
+
+void GA_EAX::Indi::ToArray (int* arr, int* arrInv) const
 {
     int curr = -1, next = 0, prev = -1;
-    for (int i = 0; i < _numCity; ++i) {
+    for (int i = 0; i < _n; ++i) {
         prev = curr;
         curr = next;
         if (_link[curr][0] != prev) {
@@ -56,17 +165,9 @@ void Indi::ToArray (int* arr, int* arrInv) const
     }
 }
 
-void Indi::DoneBy (const Evaluator* e)
+void GA_EAX::Indi::FromArray (const Evaluator* e, const int* route)
 {
-    _cost = 0;
-    for (int i = 0; i < e->GetNumCity(); ++i) {
-        _cost += e->GetCost(i, _link[i][1]);
-    }
-}
-
-void Indi::FromArray (const Evaluator* e, const int* route)
-{
-    const int n = _numCity;
+    const int n = _n;
     for (int i = 1; i < n - 1; ++i) {
         _link[route[i]][0] = route[i - 1];
         _link[route[i]][1] = route[i + 1];
@@ -76,139 +177,19 @@ void Indi::FromArray (const Evaluator* e, const int* route)
     _link[route[n - 1]][0] = route[n - 2];
     _link[route[n - 1]][1] = route[0];
 
-    DoneBy(e);
+    ComputeCost(e);
 }
 
-void Indi::MadeRand (const Evaluator* e)
+void GA_EAX::Indi::FromFlipper (const Evaluator* e, const Flipper* f)
 {
-    const int* route = e->MakeRand();
-    FromArray(e, route);
-}
-
-void Indi::FromFlipper (const Evaluator* e, const Flipper* f)
-{
-    for (int i = 0; i < _numCity; ++i) {
+    for (int i = 0; i < _n; ++i) {
         _link[i][0] = f->Prev(i);
         _link[i][1] = f->Next(i);
     }
-    DoneBy(e);
+    ComputeCost(e);
 }
 
-
-EAXGA::EAXGA (const Evaluator* eval, int nPop, int nKid)
-    : _eval(eval), _matingSeq(new int[nPop + 1]),
-      _opt2(nullptr), _cross(nullptr), _pop(nullptr),
-      _numPop(nPop), _numKids(nKid), _verbose(false),
-      _numGen(0), _avgCost(0), _stagnGen(0)
-{
-    Init();
-}
-
-EAXGA::~EAXGA ()
-{
-    delete[] _matingSeq;
-    delete _opt2;
-    delete _cross;
-    delete[] _pop;
-}
-
-void EAXGA::Init ()
-{
-    const int n = _eval->GetNumCity();
-    if (n <= 0) {
-        fprintf(stderr, "ERROR: failed to init EAXGA, #cities = %d\n", n);
-        return;
-    }
-
-    _best.Define(n);
-    _opt2 = new TwoOpt(_eval);
-    _cross = new Cross(_eval, _numPop);
-    _pop = new Indi[_numPop];
-    for (int i = 0; i < _numPop; ++i) {
-        _pop[i].Define(n);
-    }
-}
-
-void EAXGA::DoIt ()
-{
-    _numGen = 0;
-    _stagnGen = 0;
-    _best.MadeRand(_eval);
-
-    for (int i = 0; i < _numPop; ++i) {
-        _opt2->DoIt();
-        _pop[i].FromFlipper(_eval, _opt2->GetFlipper());
-    }
-
-    while (1) {
-        SelectBest();
-        if (_verbose) {
-            printf("%d: %lld %lf\n", _numGen, (long long)_best._cost, _avgCost);
-        }
-
-        if (ShouldTerminate()) {
-            break;
-        }
-
-        SelectForMating();
-        for (int s = 0; s < _numPop; ++s) {
-            _cross->DoIt(_pop[_matingSeq[s]], _pop[_matingSeq[s + 1]],
-                         _numKids);
-        }
-
-        ++_numGen;
-    }
-}
-
-void EAXGA::SelectBest ()
-{
-    int stockBest = _best._cost;
-
-    _avgCost = 0.0;
-    int bestIndex = 0;
-    int bestCost = _pop[0]._cost;
-
-    for (int i = 0; i < _numPop; ++i) {
-        _avgCost += _pop[i]._cost;
-        if (_pop[i]._cost < bestCost) {
-            bestIndex = i;
-            bestCost = _pop[i]._cost;
-        }
-    }
-
-    _best = _pop[bestIndex];
-    _avgCost /= _numPop;
-
-    if (_best._cost < stockBest) {
-        _stagnGen = 0;
-    } else {
-        _stagnGen++;
-    }
-}
-
-bool EAXGA::ShouldTerminate ()
-{
-    if (_avgCost - _best._cost < 0.001) {
-        return true;
-    }
-
-    if (_stagnGen > (1500 / _numKids)) {
-        return true;
-    }
-
-    return false;
-}
-
-void EAXGA::SelectForMating ()
-{
-    for (int i = 0; i < _numPop; i++) {
-        _matingSeq[i] = i;
-    }
-    std::shuffle(_matingSeq, _matingSeq + _numPop, _eval->GetRandEngine());
-    _matingSeq[_numPop] = _matingSeq[0];
-}
-
-Cross::Cross (const Evaluator* e, int nPop)
+GA_EAX::Cross::Cross (const Evaluator* e, int nPop)
     : _eval(e), _numCity(e->GetNumCity()), _numPop(nPop), _maxNumABcycle(2000)
 {
     const int n = _numCity;
@@ -264,7 +245,7 @@ Cross::Cross (const Evaluator* e, int nPop)
     _routeBuf = new int[n];
 }
 
-Cross::~Cross ()
+GA_EAX::Cross::~Cross ()
 {
     const int n = _numCity;
     for (int j = 0; j < _maxNumABcycle; ++j) {
@@ -316,7 +297,7 @@ Cross::~Cross ()
     delete[] _routeBuf;
 }
 
-void Cross::DoIt (Indi& kid, Indi& pa2, int nKids)
+void GA_EAX::Cross::DoIt (Indi& kid, Indi& pa2, int nKid)
 {
     int bestGain = 0, gain;
     int bestAppliedCycle, appliedCycle;
@@ -324,18 +305,18 @@ void Cross::DoIt (Indi& kid, Indi& pa2, int nKids)
     /* init _pa1Route and _pa1RouteInv for pa1 */
     kid.ToArray(_pa1Route, _pa1RouteInv);
 
-    BuildABcycle(kid, pa2, nKids);
+    BuildABcycle(kid, pa2, nKid);
 
-    if (nKids > _numABcycle) {
-        nKids = _numABcycle;
+    if (nKid > _numABcycle) {
+        nKid = _numABcycle;
     }
     for (int i = 0; i < _numABcycle; i++) {
         _permuABCycle[i] = i;
     }
     std::shuffle(_permuABCycle, _permuABCycle + _numABcycle, _eval->GetRandEngine());
 
-    /* main loop to generate nKids kids */
-    for (int j = 0; j < nKids; ++j) {
+    /* main loop to generate nKid kids */
+    for (int j = 0; j < nKid; ++j) {
         gain = 0;
         _numModiEdge = 0;
         _numSPL = 0;
@@ -346,7 +327,7 @@ void Cross::DoIt (Indi& kid, Indi& pa2, int nKids)
 
         MakeUnit();
         gain += MakeCompleteSol(kid);
-        kid._cost = kid._cost - gain;
+        kid.SetCost(kid.GetCost() - gain);
 
         if (bestGain < gain) {
             bestGain = gain;
@@ -358,16 +339,16 @@ void Cross::DoIt (Indi& kid, Indi& pa2, int nKids)
         }
 
         BackToPa1(kid, appliedCycle);
-        kid._cost = kid._cost + gain;
+        kid.SetCost(kid.GetCost() + gain);
     }
 
     if (bestGain != 0) {
         GoToBest(kid, bestAppliedCycle);
-        kid._cost = kid._cost - bestGain;
+        kid.SetCost(kid.GetCost() - bestGain);
     }
 }
 
-void Cross::BuildABcycle (const Indi& pa1, const Indi& pa2, int nKids)
+void GA_EAX::Cross::BuildABcycle (const Indi& pa1, const Indi& pa2, int nKid)
 {
     const int n = _numCity;
     int* checkCycBuf1 = _routeBuf;
@@ -375,11 +356,11 @@ void Cross::BuildABcycle (const Indi& pa1, const Indi& pa2, int nKids)
     _cycBuf1Num = 0;
 
     for (int j = 0; j < n; ++j) {
-        _overlapEdges[j][1] = pa1._link[j][0];
-        _overlapEdges[j][3] = pa1._link[j][1];
+        _overlapEdges[j][1] = pa1.GetPrev(j);
+        _overlapEdges[j][3] = pa1.GetNext(j);
         _overlapEdges[j][0] = 2;
-        _overlapEdges[j][2] = pa2._link[j][0];
-        _overlapEdges[j][4] = pa2._link[j][1];
+        _overlapEdges[j][2] = pa2.GetPrev(j);
+        _overlapEdges[j][4] = pa2.GetNext(j);
 
         _cycBuf1[_cycBuf1Num++] = j;
         _cycBuf1Inv[_cycBuf1[j]] = j;
@@ -439,7 +420,7 @@ void Cross::BuildABcycle (const Indi& pa1, const Indi& pa2, int nKids)
                                           _overlapEdges[ci][posiCurr % 2 + 3]);
                             }
                             BuildABcycle_0(1, posiCurr);
-                            if (_numABcycle == nKids) {
+                            if (_numABcycle == nKid) {
                                 goto LLL;
                             }
                             if (_numABcycle == _maxNumABcycle) {
@@ -457,7 +438,7 @@ void Cross::BuildABcycle (const Indi& pa1, const Indi& pa2, int nKids)
                         checkCycBuf1[st] = posiCurr;
                     } else {
                         BuildABcycle_0(2, posiCurr);
-                        if (_numABcycle == nKids) {
+                        if (_numABcycle == nKid) {
                             goto LLL;
                         }
                         if (_numABcycle == _maxNumABcycle) {
@@ -479,7 +460,7 @@ void Cross::BuildABcycle (const Indi& pa1, const Indi& pa2, int nKids)
                               _overlapEdges[ci][posiCurr % 2 + 3]);
                     if ((posiCurr - checkCycBuf1[ci]) % 2 == 0) {
                         BuildABcycle_0(1, posiCurr);
-                        if (_numABcycle == nKids) {
+                        if (_numABcycle == nKid) {
                             goto LLL;
                         }
                         if (_numABcycle == _maxNumABcycle) {
@@ -498,7 +479,7 @@ void Cross::BuildABcycle (const Indi& pa1, const Indi& pa2, int nKids)
             } else if (_overlapEdges[ci][0] == 1) {
                 if (ci == st) {
                     BuildABcycle_0(1, posiCurr);
-                    if (_numABcycle == nKids) {
+                    if (_numABcycle == nKid) {
                         goto LLL;
                     }
                     if (_numABcycle == _maxNumABcycle) {
@@ -529,7 +510,7 @@ void Cross::BuildABcycle (const Indi& pa1, const Indi& pa2, int nKids)
             _cycRoute[posiCurr] = ci;
             if (ci == st) {
                 BuildABcycle_0(1, posiCurr);
-                if (_numABcycle == nKids) {
+                if (_numABcycle == nKid) {
                     goto LLL;
                 }
                 if (_numABcycle == _maxNumABcycle) {
@@ -548,7 +529,7 @@ LLL:;
     }
 }
 
-void Cross::BuildABcycle_0 (int stAppear, int& posiCurr)
+void GA_EAX::Cross::BuildABcycle_0 (int stAppear, int& posiCurr)
 {
     const int st = _cycRoute[posiCurr];
     int st_count = 0;
@@ -614,7 +595,7 @@ void Cross::BuildABcycle_0 (int stAppear, int& posiCurr)
     ++_numABcycle;
 }
 
-void Cross::ChangeSol (Indi& kid, int idx, bool reverse, bool updateSeg)
+void GA_EAX::Cross::ChangeSol (Indi& kid, int idx, bool reverse, bool updateSeg)
 {
     const int n = _numCity;
     int cem, r1, r2, b1, b2;
@@ -638,15 +619,15 @@ void Cross::ChangeSol (Indi& kid, int idx, bool reverse, bool updateSeg)
         b1 = _ABCycle[1 + 2 * j];
         b2 = _ABCycle[4 + 2 * j];
 
-        if (kid._link[r1][0] == r2) {
-            kid._link[r1][0] = b1;
+        if (kid.GetPrev(r1) == r2) {
+            kid.SetPrev(r1, b1);
         } else {
-            kid._link[r1][1] = b1;
+            kid.SetNext(r1, b1);
         }
-        if (kid._link[r2][0] == r1) {
-            kid._link[r2][0] = b2;
+        if (kid.GetPrev(r2) == r1) {
+            kid.SetPrev(r2, b2);
         } else {
-            kid._link[r2][1] = b2;
+            kid.SetNext(r2, b2);
         }
 
         if (updateSeg) {
@@ -674,7 +655,7 @@ void Cross::ChangeSol (Indi& kid, int idx, bool reverse, bool updateSeg)
     }
 }
 
-void Cross::MakeUnit ()
+void GA_EAX::Cross::MakeUnit ()
 {
     const int n = _numCity;
     int flag = 1;
@@ -782,7 +763,7 @@ void Cross::MakeUnit ()
     _numSeg = tmpNumSeg + 1;
 }
 
-int Cross::MakeCompleteSol (Indi& kid)
+int GA_EAX::Cross::MakeCompleteSol (Indi& kid)
 {
     int gainModi = 0;
     constexpr int NearMaxDef = 10;
@@ -819,10 +800,10 @@ int Cross::MakeCompleteSol (Indi& kid)
             _listCenterUnit[numEleInCU] = curr;
             ++numEleInCU;
 
-            if (kid._link[curr][0] != prev) {
-                next = kid._link[curr][0];
+            if (kid.GetPrev(curr) != prev) {
+                next = kid.GetPrev(curr);
             } else {
-                next = kid._link[curr][1];
+                next = kid.GetNext(curr);
             }
 
             if (next == st) {
@@ -838,10 +819,8 @@ int Cross::MakeCompleteSol (Indi& kid)
         int diff = 0;
         a1 = -1;
         b1 = -1;
-        /*
-         *N_near (see Step 5.3 in Section 2.2 of the Online Supplement)
-         * nearMax must be smaller than or equal to eva->_maxNumNear (Evaluator)
-         */
+        /* N_near (see Step 5.3 in Section 2.2 of the Online Supplement)
+         * nearMax must be smaller than or equal to eva->_maxNumNear (Evaluator) */
         assert(NearMaxDef <= _eval->GetMaxNumNear());
         int nearMax = NearMaxDef;
 
@@ -854,7 +833,7 @@ int Cross::MakeCompleteSol (Indi& kid)
                     for (int j1 = 0; j1 < 2; ++j1) {
                         b = _listCenterUnit[s - 1 + 2 * j1];
                         for (int j2 = 0; j2 < 2; ++j2) {
-                            d = kid._link[c][j2];
+                            d = (j2 == 0)? kid.GetPrev(c) : kid.GetNext(c);
                             diff = _eval->GetCost(a, b) + _eval->GetCost(c, d)
                                    - _eval->GetCost(a, c) - _eval->GetCost(b, d);
                             if (diff > max_diff) {
@@ -892,7 +871,7 @@ int Cross::MakeCompleteSol (Indi& kid)
                     aa = a;
                     bb = b;
                     a1 = j;
-                    b1 = kid._link[j][0];
+                    b1 = kid.GetPrev(j);
                     break;
                 }
             }
@@ -900,25 +879,25 @@ int Cross::MakeCompleteSol (Indi& kid)
                        - _eval->GetCost(a, a1) - _eval->GetCost(b, b1);
         }
 
-        if (kid._link[aa][0] == bb) {
-            kid._link[aa][0] = a1;
+        if (kid.GetPrev(aa) == bb) {
+            kid.SetPrev(aa, a1);
         } else {
-            kid._link[aa][1] = a1;
+            kid.SetNext(aa, a1);
         }
-        if (kid._link[bb][0] == aa) {
-            kid._link[bb][0] = b1;
+        if (kid.GetPrev(bb) == aa) {
+            kid.SetPrev(bb, b1);
         } else {
-            kid._link[bb][1] = b1;
+            kid.SetNext(bb, b1);
         }
-        if (kid._link[a1][0] == b1) {
-            kid._link[a1][0] = aa;
+        if (kid.GetPrev(a1) == b1) {
+            kid.SetPrev(a1, aa);
         } else {
-            kid._link[a1][1] = aa;
+            kid.SetNext(a1, aa);
         }
-        if (kid._link[b1][0] == a1) {
-            kid._link[b1][0] = bb;
+        if (kid.GetPrev(b1) == a1) {
+            kid.SetPrev(b1, bb);
         } else {
-            kid._link[b1][1] = bb;
+            kid.SetNext(b1, bb);
         }
 
         _modiEdge[_numModiEdge][0] = aa;
@@ -963,7 +942,7 @@ int Cross::MakeCompleteSol (Indi& kid)
     return gainModi;
 }
 
-void Cross::BackToPa1 (Indi& kid, int appliedCycle)
+void GA_EAX::Cross::BackToPa1 (Indi& kid, int appliedCycle)
 {
     int aa, bb, a1, b1;
     for (int s = _numModiEdge - 1; s >= 0; --s) {
@@ -972,32 +951,32 @@ void Cross::BackToPa1 (Indi& kid, int appliedCycle)
         bb = _modiEdge[s][2];
         b1 = _modiEdge[s][3];
 
-        if (kid._link[aa][0] == bb) {
-            kid._link[aa][0] = a1;
+        if (kid.GetPrev(aa) == bb) {
+            kid.SetPrev(aa, a1);
         } else {
-            kid._link[aa][1] = a1;
+            kid.SetNext(aa, a1);
         }
-        if (kid._link[b1][0] == a1) {
-            kid._link[b1][0] = bb;
+        if (kid.GetPrev(b1) == a1) {
+            kid.SetPrev(b1, bb);
         } else {
-            kid._link[b1][1] = bb;
+            kid.SetNext(b1, bb);
         }
-        if (kid._link[bb][0] == aa) {
-            kid._link[bb][0] = b1;
+        if (kid.GetPrev(bb) == aa) {
+            kid.SetPrev(bb, b1);
         } else {
-            kid._link[bb][1] = b1;
+            kid.SetNext(bb, b1);
         }
-        if (kid._link[a1][0] == b1) {
-            kid._link[a1][0] = aa;
+        if (kid.GetPrev(a1) == b1) {
+            kid.SetPrev(a1, aa);
         } else {
-            kid._link[a1][1] = aa;
+            kid.SetNext(a1, aa);
         }
     }
 
     ChangeSol(kid, appliedCycle, true /*reverse*/, false /*updateSeg*/);
 }
 
-void Cross::GoToBest (Indi& kid, int bestAppliedCycle)
+void GA_EAX::Cross::GoToBest (Indi& kid, int bestAppliedCycle)
 {
     int aa, bb, a1, b1;
 
@@ -1009,25 +988,25 @@ void Cross::GoToBest (Indi& kid, int bestAppliedCycle)
         a1 = _bestModiEdge[s][2];
         b1 = _bestModiEdge[s][3];
 
-        if (kid._link[aa][0] == bb) {
-            kid._link[aa][0] = a1;
+        if (kid.GetPrev(aa) == bb) {
+            kid.SetPrev(aa, a1);
         } else {
-            kid._link[aa][1] = a1;
+            kid.SetNext(aa, a1);
         }
-        if (kid._link[bb][0] == aa) {
-            kid._link[bb][0] = b1;
+        if (kid.GetPrev(bb) == aa) {
+            kid.SetPrev(bb, b1);
         } else {
-            kid._link[bb][1] = b1;
+            kid.SetNext(bb, b1);
         }
-        if (kid._link[a1][0] == b1) {
-            kid._link[a1][0] = aa;
+        if (kid.GetPrev(a1) == b1) {
+            kid.SetPrev(a1, aa);
         } else {
-            kid._link[a1][1] = aa;
+            kid.SetNext(a1, aa);
         }
-        if (kid._link[b1][0] == a1) {
-            kid._link[b1][0] = bb;
+        if (kid.GetPrev(b1) == a1) {
+            kid.SetPrev(b1, bb);
         } else {
-            kid._link[b1][1] = bb;
+            kid.SetNext(b1, bb);
         }
     }
 }

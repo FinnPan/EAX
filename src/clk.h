@@ -13,8 +13,8 @@
 /*                                                                          */
 /****************************************************************************/
 
-#ifndef  __LINKERN_H
-#define  __LINKERN_H
+#ifndef __THU_CLK_H
+#define __THU_CLK_H
 
 #include "util.h"
 
@@ -27,4 +27,4 @@ int
 
 } /* namespace thu */
 
-#endif  /* __LINKERN_H */
+#endif /* __THU_CLK_H */

@@ -1,5 +1,5 @@
-#ifndef __UTIL_H
-#define __UTIL_H
+#ifndef __THU_UTIL_H
+#define __THU_UTIL_H
 
 #include <cstdio>
 #include <cmath>
@@ -29,7 +29,7 @@ private:
     static void GetProcessMem (double& physMem, double& virtMem);
 private:
     TimePoint _dayTime0;
-    double _cpuTime0;
+    double    _cpuTime0;
 };
 
 /* Parse .tsp file, adapted from Concorde. */
@@ -119,15 +119,14 @@ public:
     Evaluator ();
     ~Evaluator ();
     bool Init (const char* filename);
-    int DoIt (const int* route) const;
-    int DoIt (const Flipper* f) const;
+    int ComputeCost (const int* route) const;
+    int ComputeCost (const Flipper* f) const;
     const int* MakeRand () const;
-    RandEngine& GetRandEngine () const { return *_rand; }
+    RandEngine& GetRandEngine () const { return *_randEng; }
     RandType GetRand () const { return GetRandEngine()(); }
     int GetMaxNumNear () const { return _maxNumNear; }
     /* return jth-nearest neighbor of i
-     * j is valid from 0 to GetMaxNumNear()-1.
-     */
+     * j is valid from 0 to GetMaxNumNear()-1. */
     int GetNear (int i, int j) const { return _nearTbl[i][j]; }
     const TspLib* GetTspLib () const { return &_tspLib; }
     int GetNumCity () const { return _tspLib.GetDimension(); }
@@ -136,10 +135,10 @@ public:
 private:
     void BuildNeighborLists ();
 private:
-    RandEngine *_rand;
     const int   _maxNumNear;
+    RandEngine *_randEng;
+    int        *_randBuf;
     int       **_nearTbl;
-    int        *_routeBuf;
     TspLib      _tspLib;
 };
 
@@ -156,10 +155,10 @@ public:
 private:
     void TwoExchange ();
 private:
-    const Evaluator* _eval;
+    const Evaluator *_eval;
     Flipper          _flipper;
 };
 
 } /* namespace thu */
 
-#endif /* __UTIL_H */
+#endif /* __THU_UTIL_H */
