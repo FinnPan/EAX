@@ -29,18 +29,16 @@ private:
         Indi& operator= (const Indi&);
         Indi (Indi&&) = delete;
         Indi& operator= (Indi&&) = delete;
+        void Init (int n);
         int GetCost () const { return _cost; }
         void SetCost (int c) { _cost = c; }
         int GetPrev (int i) const { return _link[i][0]; }
         int GetNext (int i) const { return _link[i][1]; }
         void SetPrev (int i, int c) { _link[i][0] = c; }
         void SetNext (int i, int c) { _link[i][1] = c; }
-        void Init (int n);
-        void ToArray (int* arr, int* arrInv = nullptr) const;
+        void ComputeCost (const Evaluator* e);
         void FromArray (const Evaluator* e, const int* route);
         void FromFlipper (const Evaluator* e, const Flipper* f);
-    private:
-        void ComputeCost (const Evaluator* e);
     private:
         int   _n;
         int **_link;
@@ -56,6 +54,7 @@ private:
         ~Cross ();
         void DoIt (Indi& kid, Indi& pa2, int nKid);
     private:
+        void ToArray (const Indi& kid, int* arr, int* arrInv) const;
         void BuildABcycle (const Indi& pa1, const Indi& pa2, int nKid);
         void BuildABcycle_0 (int stAppear, int& posiCurr);
         void ChangeSol (Indi& kid, int idx, bool reverse, bool updateSeg = true);

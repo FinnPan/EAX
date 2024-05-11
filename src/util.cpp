@@ -26,12 +26,8 @@ void RUsage::Reset ()
 
 void RUsage::Report (const char* tag) const
 {
-    assert(tag);
-
     std::chrono::duration<double> elapsedTime = GetTimeOfDay() - _dayTime0;
-
     double cpuTime = GetTimeOfCPU() - _cpuTime0;
-
     double physMem, virtMem;
     GetProcessMem(physMem, virtMem);
 
@@ -211,7 +207,6 @@ bool TspLib::Init (const char *fileName)
                 }
                 _x = new double[GetDimension()];
                 _y = new double[GetDimension()];
-                assert(_x && _y);
                 for (int i = 0; i < GetDimension(); i++) {
                     fscanf(in, "%*d %lf %lf", &(_x[i]), &(_y[i]));
                 }
@@ -278,7 +273,6 @@ void Flipper::Init_1 (int count)
 
     _parents = new ParentNode[_numSegments];
     _children = new ChildNode[count];
-    assert(_parents && _children);
 
     int remain = count;
     int n = 0;
@@ -295,8 +289,8 @@ void Flipper::Init_1 (int count)
     _parents[n++].size = remain;
 
     if (n != _numSegments) {
-        fprintf (stderr, "ERROR: seg count is wrong\n");
-        assert(0);
+        fprintf (stderr, "ERROR: seg count (%d != %d) is wrong\n", n, _numSegments);
+        exit(1);
     }
 }
 
@@ -746,7 +740,10 @@ void Evaluator::BuildNeighborLists ()
             }
         }
         std::reverse(_nearTbl[ci], _nearTbl[ci] + maxNumNear);
-        assert(cnt == maxNumNear);
+        if (cnt != maxNumNear) {
+            fprintf(stderr, "ERROR: invalid neighbor count (%d)\n", cnt);
+            exit(1);
+        }
     }
     ru.Report("neighbor-lists");
 }

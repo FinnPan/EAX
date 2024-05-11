@@ -147,24 +147,6 @@ void GA_EAX::Indi::ComputeCost (const Evaluator* e)
     }
 }
 
-void GA_EAX::Indi::ToArray (int* arr, int* arrInv) const
-{
-    int curr = -1, next = 0, prev = -1;
-    for (int i = 0; i < _n; ++i) {
-        prev = curr;
-        curr = next;
-        if (_link[curr][0] != prev) {
-            next = _link[curr][0];
-        } else {
-            next = _link[curr][1];
-        }
-        arr[i] = curr;
-        if (arrInv) {
-            arrInv[curr] = i;
-        }
-    }
-}
-
 void GA_EAX::Indi::FromArray (const Evaluator* e, const int* route)
 {
     const int n = _n;
@@ -303,7 +285,7 @@ void GA_EAX::Cross::DoIt (Indi& kid, Indi& pa2, int nKid)
     int bestAppliedCycle, appliedCycle;
 
     /* init _pa1Route and _pa1RouteInv for pa1 */
-    kid.ToArray(_pa1Route, _pa1RouteInv);
+    ToArray(kid, _pa1Route, _pa1RouteInv);
 
     BuildABcycle(kid, pa2, nKid);
 
@@ -345,6 +327,25 @@ void GA_EAX::Cross::DoIt (Indi& kid, Indi& pa2, int nKid)
     if (bestGain != 0) {
         GoToBest(kid, bestAppliedCycle);
         kid.SetCost(kid.GetCost() - bestGain);
+    }
+}
+
+void GA_EAX::Cross::ToArray (const Indi& kid, int* arr, int* arrInv) const
+{
+    const int n = _numCity;
+    int prev = -1, curr = -1, next = 0;
+    for (int i = 0; i < n; ++i) {
+        prev = curr;
+        curr = next;
+        if (kid.GetPrev(curr) != prev) {
+            next = kid.GetPrev(curr);
+        } else {
+            next = kid.GetNext(curr);
+        }
+        arr[i] = curr;
+        if (arrInv) {
+            arrInv[curr] = i;
+        }
     }
 }
 
@@ -524,7 +525,7 @@ void GA_EAX::Cross::BuildABcycle (const Indi& pa1, const Indi& pa2, int nKid)
 LLL:;
 
     if (_numABcycle == _maxNumABcycle) {
-        fprintf(stderr, "WARNING: _maxNumABcycle(%d) must be increased\n",
+        fprintf(stderr, "WARNING: _maxNumABcycle (%d) must be increased\n",
                _maxNumABcycle);
     }
 }
@@ -632,7 +633,7 @@ void GA_EAX::Cross::ChangeSol (Indi& kid, int idx, bool reverse, bool updateSeg)
 
         if (updateSeg) {
             if (_numSPL >= n) {
-                fprintf(stderr, "ERROR: numSPL reach max(%d) in ChangeSol\n", n);
+                fprintf(stderr, "ERROR: numSPL reach max (%d) in ChangeSol\n", n);
                 exit(1);
             }
             if (_pa1RouteInv[r1] == 0 && _pa1RouteInv[r2] == n - 1) {
@@ -644,7 +645,8 @@ void GA_EAX::Cross::ChangeSol (Indi& kid, int idx, bool reverse, bool updateSeg)
             } else if (_pa1RouteInv[r2] < _pa1RouteInv[r1]) {
                 _segPosiList[_numSPL++] = _pa1RouteInv[r1];
             } else {
-                assert(0);
+                fprintf(stderr, "ERROR: invalid else branch in ChangeSol\n", n);
+                exit(1);
             }
 
             _linkBPosi[_pa1RouteInv[r1]][1] = _linkBPosi[_pa1RouteInv[r1]][0];
@@ -667,7 +669,7 @@ void GA_EAX::Cross::MakeUnit ()
     }
     if (flag == 1) {
         if (_numSPL >= n) {
-            fprintf(stderr, "ERROR: numSPL reach max(%d) in MakeUnit", n);
+            fprintf(stderr, "ERROR: numSPL reach max (%d) in MakeUnit", n);
             exit(1);
         }
         _segPosiList[_numSPL++] = 0;
@@ -788,7 +790,10 @@ int GA_EAX::Cross::MakeCompleteSol (Indi& kid)
                 st = _pa1Route[posi];
             }
         }
-        assert(st != -1);
+        if (st == -1) {
+            fprintf(stderr, "ERROR: invalid st\n");
+            exit(1);
+        }
 
         curr = -1;
         next = st;
@@ -813,7 +818,10 @@ int GA_EAX::Cross::MakeCompleteSol (Indi& kid)
         _listCenterUnit[numEleInCU] = _listCenterUnit[0];
         _listCenterUnit[numEleInCU + 1] = _listCenterUnit[1];
 
-        assert(numEleInCU == _numElementInUnit[center_un]);
+        if (numEleInCU != _numElementInUnit[center_un]) {
+            fprintf(stderr, "ERROR: invalid numEleInCU (%d)\n", numEleInCU);
+            exit(1);
+        }
 
         int max_diff = std::numeric_limits<int>::min();
         int diff = 0;
@@ -821,7 +829,10 @@ int GA_EAX::Cross::MakeCompleteSol (Indi& kid)
         b1 = -1;
         /* N_near (see Step 5.3 in Section 2.2 of the Online Supplement)
          * nearMax must be smaller than or equal to eva->_maxNumNear (Evaluator) */
-        assert(NearMaxDef <= _eval->GetMaxNumNear());
+        if (NearMaxDef > _eval->GetMaxNumNear()) {
+            fprintf(stderr, "ERROR: invalid NearMaxDef (%d)\n", NearMaxDef);
+            exit(1);
+        }
         int nearMax = NearMaxDef;
 
     RESTART:;
@@ -916,7 +927,10 @@ int GA_EAX::Cross::MakeCompleteSol (Indi& kid)
                 break;
             }
         }
-        assert(select_un != -1);
+        if (select_un == -1) {
+            fprintf(stderr, "ERROR: invalid select_un\n");
+            exit(1);
+        }
 
         for (int s = 0; s < _numSeg; ++s) {
             if (_segUnit[s] == select_un) {

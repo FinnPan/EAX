@@ -216,7 +216,10 @@ bool RunCLK (int times, bool verbose)
             }
         }
     }
-    assert(edgeNum > 0);
+    if (edgeNum <= 0) {
+        fprintf(stderr, "ERROR: invalid edge num (%d)\n", edgeNum);
+        exit(1);
+    }
     int *edgeList = new int[2*edgeNum];
     int listIdx = 0;
     for (int ci = 0; ci < num; ++ci) {
@@ -231,7 +234,10 @@ bool RunCLK (int times, bool verbose)
             }
         }
     }
-    assert(listIdx == 2*edgeNum);
+    if (listIdx != 2*edgeNum) {
+        fprintf(stderr, "ERROR: invalid list index (%d), edge num (%d)\n", listIdx, edgeNum);
+        exit(1);
+    }
 
     srand((unsigned int)time(0));
     auto* dat = const_cast<thu::TspLib*>(g_eval->GetTspLib());
