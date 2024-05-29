@@ -645,7 +645,7 @@ void GA_EAX::Cross::ChangeSol (Indi& kid, int idx, bool reverse, bool updateSeg)
             } else if (_pa1RouteInv[r2] < _pa1RouteInv[r1]) {
                 _segPosiList[_numSPL++] = _pa1RouteInv[r1];
             } else {
-                fprintf(stderr, "ERROR: invalid else branch in ChangeSol\n", n);
+                fprintf(stderr, "ERROR: invalid else branch in ChangeSol\n");
                 exit(1);
             }
 
