@@ -50,7 +50,7 @@ private:
      * are removed, even if they help achieve the optimal solution. */
     class Cross {
     public:
-        Cross (const Evaluator* e, int nPop);
+        Cross (const Evaluator* e);
         ~Cross ();
         void DoIt (Indi& kid, Indi& pa2, int nKid);
     private:
@@ -65,7 +65,6 @@ private:
     private:
         const Evaluator *_eval;
         const int        _numCity;
-        const int        _numPop;
         const int        _maxNumABcycle;
 
         int *_pa1Route, *_pa1RouteInv;

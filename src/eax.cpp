@@ -14,7 +14,7 @@ GA_EAX::GA_EAX (const Evaluator* eval, int nPop, int nKid)
     }
 
     _2opt = new TwoOpt(eval);
-    _cross = new Cross(eval, nPop);
+    _cross = new Cross(eval);
     _pop = new Indi[nPop+1];
     for (int i = 0; i < nPop+1; ++i) {
         _pop[i].Init(n);
@@ -171,8 +171,8 @@ void GA_EAX::Indi::FromFlipper (const Evaluator* e, const Flipper* f)
     ComputeCost(e);
 }
 
-GA_EAX::Cross::Cross (const Evaluator* e, int nPop)
-    : _eval(e), _numCity(e->GetNumCity()), _numPop(nPop), _maxNumABcycle(2000)
+GA_EAX::Cross::Cross (const Evaluator* e)
+    : _eval(e), _numCity(e->GetNumCity()), _maxNumABcycle(2000)
 {
     const int n = _numCity;
     _ABcycleList = new int*[_maxNumABcycle];
