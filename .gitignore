@@ -1,8 +1,5 @@
 build/
 *vscode*/
-archive/concorde-*/
-archive/GA-EAX-*/
-archive/LKH-*/
 
 .DS_Store
 

@@ -6,7 +6,7 @@
 namespace thu { /* tsp heuristics */
 
 /* Genetic Algorithm powered by Edge Assembly Crossover.
- * Some codes are adapted from GA-EAX by Yuichi Nagata. */
+ * Some codes are adapted from GA-EAX. */
 class GA_EAX {
 public:
     GA_EAX (const Evaluator* eval, int nPop = 100, int nKid = 30);

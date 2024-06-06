@@ -3,19 +3,13 @@ tsphurt focuses on robust and readable implementations of TSP heuristics:
   1. 2-Opt (2-exchange local search) : Done!
   2. GA-EAX (GA with Edge Assembly Crossover) : Doing.
   3. CLK (Chained Lin-Kernighan) : Todo.
-  4. LKH (Lin-Kernighan-Helsgaun) : Todo.
 ================================================================================
 
 Contents of the directory tree are below.
 
-src/ is source codes. Some are adapted from:
-    GA-EAX by Yuichi Nagata,
-    Concorde by Applegate, Bixby, Chvatal, and Cook.
-
-archive/ is original codes, which are downloaded from:
-    "github.com/nagata-yuichi/GA-EAX",
-    "www.math.uwaterloo.ca/tsp/concorde/downloads/codes/src/co031219.tgz",
-    "webhotel4.ruc.dk/~keld/research/LKH/".
+src/ is source codes. Some codes are adapted from:
+    GA-EAX by Yuichi Nagata (github.com/nagata-yuichi/GA-EAX),
+    Concorde by Applegate, Bixby, Chvatal, and Cook (www.math.uwaterloo.ca/tsp/concorde/downloads).
 
 doc/ is papers, which are referenced to implement these TSP heuristics.
 
