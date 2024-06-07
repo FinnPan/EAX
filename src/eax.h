@@ -49,37 +49,57 @@ private:
      * For simplicity, Diversity preservation by Entropy and E-sets by Block2
      * are removed, even if they help achieve the optimal solution. */
     class Cross {
+        /* A cycle, such that edges of E_A and edges of E_B are alternately linked. */
+        class ABcycle {
+        public:
+            explicit ABcycle (int n);
+            ~ABcycle ();
+            int GetCyc (int i) const { return _cyc[i]; }
+            void SetCyc (int i, int v) { _cyc[i] = v; }
+            int GetGain () const { return _gain; }
+            void SetGain (int g) { _gain = g; }
+            void ChangeIndi (ABcycle* buf, bool reverse, Indi& pa1) const;
+        private:
+            int* _cyc;
+            int _gain;
+        };
+        /* Segment representation of an intermediate solution. */
+        struct Segment {
+            int segId;
+            int beginPos, endPos;
+            int prevPos, nextPos;
+            int tourId;
+        };
     public:
         Cross (const Evaluator* e);
         ~Cross ();
-        void DoIt (Indi& kid, Indi& pa2, int nKid);
+        void DoIt (Indi& pa1, Indi& pa2, int nKid);
     private:
-        void ToArray (const Indi& kid, int* arr, int* arrInv) const;
+        void InitPa1CityPos (const Indi& pa1) const;
         void BuildABcycle (const Indi& pa1, const Indi& pa2, int nKid);
         void BuildABcycle_0 (int stAppear, int& posiCurr);
-        void ChangeSol (Indi& kid, int idx, bool reverse, bool updateSeg = true);
+        void UpdateSeg ();
         void MakeUnit ();
-        int MakeCompleteSol (Indi& kid);
-        void BackToPa1 (Indi& kid, int appliedCycle);
-        void GoToBest (Indi& kid, int bestAppliedCycle);
+        int MakeCompleteSol (Indi& pa1);
+        void BackToPa1 (Indi& pa1, const ABcycle* abc);
+        void GoToBest (Indi& pa1, const ABcycle* abc);
     private:
         const Evaluator *_eval;
-        const int        _numCity;
-        const int        _maxNumABcycle;
+        const int _numCity;
+        const int _maxNumABcycle;
 
-        int *_pa1Route, *_pa1RouteInv;
+        int *_pa1City, *_pa1Pos;
 
+        ABcycle** _ABcycleList;
         int _numABcycle;
-        int** _ABcycleList;
-        int* _permuABCycle;
-        int* _gainABcycle;
 
+        ABcycle* _ABCycle;
         int** _overlapEdges;
         int *_cycBuf1, *_cycBuf1Inv;
         int *_cycBuf2, *_cycBuf2Inv;
         int _cycBuf1Num, _cycBuf2Num;
         int* _cycRoute;
-        int* _ABCycle;
+        int* _checkCycBuf1;
 
         int _numModiEdge;
         int** _modiEdge;
@@ -98,8 +118,6 @@ private:
         int* _numElementInUnit;
         int* _centerUnit;
         int* _listCenterUnit;
-
-        int* _routeBuf;
     };
 
 private:
