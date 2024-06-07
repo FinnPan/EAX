@@ -1,6 +1,7 @@
 #ifndef __THU_EAX_H
 #define __THU_EAX_H
 
+#include <tuple>
 #include "util.h"
 
 namespace thu { /* tsp heuristics */
@@ -31,7 +32,7 @@ private:
         Indi& operator= (Indi&&) = delete;
         void Init (int n);
         int GetCost () const { return _cost; }
-        void SetCost (int c) { _cost = c; }
+        void SetGain (int g) { _cost -= g; }
         int GetPrev (int i) const { return _link[i][0]; }
         int GetNext (int i) const { return _link[i][1]; }
         void SetPrev (int i, int c) { _link[i][0] = c; }
@@ -45,71 +46,83 @@ private:
         int   _cost;
     };
 
-    /* Edge Assembly Crossover.
-     * For simplicity, Diversity preservation by Entropy and E-sets by Block2
-     * are removed, even if they help achieve the optimal solution. */
-    class Cross {
-        /* A cycle, such that edges of E_A and edges of E_B are alternately linked. */
-        class ABcycle {
-        public:
-            explicit ABcycle (int n);
-            ~ABcycle ();
-            int GetCyc (int i) const { return _cyc[i]; }
-            void SetCyc (int i, int v) { _cyc[i] = v; }
-            int GetGain () const { return _gain; }
-            void SetGain (int g) { _gain = g; }
-            void ChangeIndi (ABcycle* buf, bool reverse, Indi& pa1) const;
-        private:
-            int* _cyc;
-            int _gain;
-        };
-        /* Segment representation of an intermediate solution. */
-        struct Segment {
-            int segId;
-            int beginPos, endPos;
-            int prevPos, nextPos;
-            int tourId;
-        };
+    /* A cycle, such that edges of E_A and edges of E_B are alternately linked. */
+    class ABcycle {
     public:
-        Cross (const Evaluator* e);
-        ~Cross ();
-        void DoIt (Indi& pa1, Indi& pa2, int nKid);
+        explicit ABcycle (int n);
+        ~ABcycle ();
+        int GetCyc (int i) const { return _cyc[i]; }
+        void SetCyc (int i, int v) { _cyc[i] = v; }
+        int GetGain () const { return _gain; }
+        void SetGain (int g) { _gain = g; }
     private:
-        void InitPa1CityPos (const Indi& pa1) const;
-        void BuildABcycle (const Indi& pa1, const Indi& pa2, int nKid);
-        void BuildABcycle_0 (int stAppear, int& posiCurr);
-        void UpdateSeg ();
-        void MakeUnit ();
-        int MakeCompleteSol (Indi& pa1);
-        void BackToPa1 (Indi& pa1, const ABcycle* abc);
-        void GoToBest (Indi& pa1, const ABcycle* abc);
+        int* _cyc;
+        int _gain;
+    };
+
+    using EdgeTuple = std::tuple<int, int, int, int>;
+    using EdgeTuples = std::vector<EdgeTuple>;
+
+    /* Build all AB-cycles from pa1 and pa2. */
+    class ABcyleMgr {
+    public:
+        explicit ABcyleMgr (const Evaluator *eval);
+        ~ABcyleMgr ();
+        void Build (const Indi& pa1, const Indi& pa2, int nKid);
+        ABcycle* GetABCycle (int i) const { return _ABcycleList[i]; }
+        int GetNumABCycle () const { return _numABcycle; }
+        const ABcycle* ChangeIndi (int idx, bool reverse, Indi& pa1) const;
+        void BackToPa1 (int idx, const EdgeTuples& me, Indi& pa1) const;
+        void GoToBest (int idx, const EdgeTuples& me, Indi& pa1) const;
+    private:
+        void Build_0 (int stAppear, int& posiCurr);
     private:
         const Evaluator *_eval;
         const int _numCity;
         const int _maxNumABcycle;
-
-        int *_pa1City, *_pa1Pos;
-
         ABcycle** _ABcycleList;
         int _numABcycle;
-
-        ABcycle* _ABCycle;
+        ABcycle* _abcBuf;
         int** _overlapEdges;
         int *_cycBuf1, *_cycBuf1Inv;
         int *_cycBuf2, *_cycBuf2Inv;
         int _cycBuf1Num, _cycBuf2Num;
         int* _cycRoute;
         int* _checkCycBuf1;
+    };
 
-        int _numModiEdge;
-        int** _modiEdge;
-        int _numBestModiEdge;
-        int** _bestModiEdge;
+    /* Segment representation of an intermediate solution. */
+    struct Segment {
+        int segId;
+        int beginPos, endPos;
+        int prevPos, nextPos;
+        int tourId;
+    };
+
+    /* Edge Assembly Crossover.
+     * For simplicity, Diversity preservation by Entropy and E-sets by Block2
+     * are removed, even if they help achieve the optimal solution. */
+    class Cross {
+    public:
+        explicit Cross (const Evaluator* e);
+        ~Cross ();
+        void DoIt (Indi& pa1, Indi& pa2, int nKid);
+    private:
+        void InitPa1CityPos (const Indi& pa1) const;
+        void UpdateSeg (const ABcycle* abc);
+        void MakeUnit ();
+        int MakeCompleteSol (Indi& pa1);
+    private:
+        const Evaluator *_eval;
+        const int _numCity;
+        int *_pa1City, *_pa1Pos;
+        ABcyleMgr* _abcMgr;
+        EdgeTuples _modiEdges, _bestModiEdges;
 
         int** _segment;
+        int _numSeg;
         int* _segUnit;
         int _numUnit;
-        int _numSeg;
         int* _segPosiList;
         int _numSPL;
         int* _linkAPosi;
