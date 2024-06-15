@@ -46,18 +46,39 @@ private:
         int   _cost;
     };
 
-    /* A cycle, such that edges of E_A and edges of E_B are alternately linked. */
+    /* A cycle, such that A edges and B edges are alternately linked. */
     class ABcycle {
     public:
+        /* Iterate all B+A+B or A+B+A edge-tuples in ABcycle. */
+        class Iterator {
+        public:
+            Iterator () = default;
+            ~Iterator () = default;
+            void Begin (const ABcycle* abc, bool reverse);
+            /* return edge-tuples: b1--r1, r1--r2, r2--b2 */
+            bool End (int& b1, int& r1, int& r2, int& b2) const;
+            void operator++ (int) { ++_i; }
+        private:
+            const ABcycle* _abc;
+            int _len, _i, _start, _step, _offset[4];
+        };
+
         explicit ABcycle (int n);
-        ~ABcycle ();
+        ~ABcycle () { delete _cyc; }
+        int GetMaxLen () const { return _maxLen; }
+        int GetLen () const { return _len; }
+        void SetLen (int l) { _len = l; }
         int GetCyc (int i) const { return _cyc[i]; }
         void SetCyc (int i, int v) { _cyc[i] = v; }
         int GetGain () const { return _gain; }
         void SetGain (int g) { _gain = g; }
     private:
-        int* _cyc;
+        const int _maxLen;
+        int _len;
+        /* gain when replacing A edges with B edges */
         int _gain;
+        /* (2*i)--(2*i+1) are A edges, (2*i+1)--(2*i+2) are B edges. */
+        int* _cyc;
     };
 
     using EdgeTuple = std::tuple<int, int, int, int>;
@@ -69,20 +90,20 @@ private:
         explicit ABcyleMgr (const Evaluator *eval);
         ~ABcyleMgr ();
         void Build (const Indi& pa1, const Indi& pa2, int nKid);
-        ABcycle* GetABCycle (int i) const { return _ABcycleList[i]; }
+        const ABcycle* GetABCycle (int idx) const { return _ABcycleList[idx]; }
         int GetNumABCycle () const { return _numABcycle; }
-        const ABcycle* ChangeIndi (int idx, bool reverse, Indi& pa1) const;
+        void ChangeIndi (int idx, bool reverse, Indi& pa1) const;
         void BackToPa1 (int idx, const EdgeTuples& me, Indi& pa1) const;
         void GoToBest (int idx, const EdgeTuples& me, Indi& pa1) const;
+        static void BreakEdge (int b1, int r1, int r2, int b2, Indi& pa1);
     private:
-        void Build_0 (int stAppear, int& posiCurr);
+        bool Build_0 (const int stAppear, const int nKid, int& posiCurr);
     private:
         const Evaluator *_eval;
         const int _numCity;
         const int _maxNumABcycle;
         ABcycle** _ABcycleList;
         int _numABcycle;
-        ABcycle* _abcBuf;
         int** _overlapEdges;
         int *_cycBuf1, *_cycBuf1Inv;
         int *_cycBuf2, *_cycBuf2Inv;
@@ -109,7 +130,7 @@ private:
         void DoIt (Indi& pa1, Indi& pa2, int nKid);
     private:
         void InitPa1CityPos (const Indi& pa1) const;
-        void UpdateSeg (const ABcycle* abc);
+        void UpdateSeg (int idx);
         void MakeUnit ();
         int MakeCompleteSol (Indi& pa1);
     private:
