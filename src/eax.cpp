@@ -2,8 +2,8 @@
 
 namespace thu { /* tsp heuristics */
 
-GA_EAX::GA_EAX (const Evaluator* eval, int nPop, int nKid)
-    : _eval(eval), _numPop(nPop), _numKid(nKid),
+GA_EAX::GA_EAX (const Evaluator* eval, int numPop, int numKid)
+    : _eval(eval), _numPop(numPop), _numKid(numKid),
       _2opt(nullptr), _cross(nullptr), _pop(nullptr), _matingSeq(nullptr),
       _verbose(false), _numGen(0), _avgCost(0), _stagnateGen(0)
 {
@@ -11,13 +11,13 @@ GA_EAX::GA_EAX (const Evaluator* eval, int nPop, int nKid)
 
     _2opt = new TwoOpt(eval);
     _cross = new Cross(eval);
-    _pop = new Indi[nPop+1];
-    for (int i = 0; i < nPop+1; ++i) {
+    _pop = new Tour[numPop+1];
+    for (int i = 0; i < numPop+1; ++i) {
         _pop[i].Init(n);
     }
-    _matingSeq = new int[nPop];
+    _matingSeq = new int[numPop];
 
-    for (int i = 0; i < nPop; ++i) {
+    for (int i = 0; i < numPop; ++i) {
         _matingSeq[i] = i;
     }
 }
@@ -43,7 +43,7 @@ void GA_EAX::DoIt ()
     do {
         SelectBest();
         if (_verbose) {
-            printf("=%d: %d %.3f\n", _numGen, GetBestIndi().GetCost(), _avgCost);
+            printf("=%d: %d %.3f\n", _numGen, GetBestTour().GetCost(), _avgCost);
         }
 
         if (ShouldTerminate()) {
@@ -65,7 +65,7 @@ void GA_EAX::SelectBest ()
 {
     _avgCost = 0.0;
 
-    const int stockBestCost = GetBestIndi().GetCost();
+    const int stockBestCost = GetBestTour().GetCost();
     int bestIndex = 0;
 
     for (int i = 0; i < _numPop; ++i) {
@@ -76,9 +76,9 @@ void GA_EAX::SelectBest ()
     }
 
     _avgCost /= _numPop;
-    GetBestIndi() = _pop[bestIndex];
+    GetBestTour() = _pop[bestIndex];
 
-    if (GetBestIndi().GetCost() < stockBestCost) {
+    if (GetBestTour().GetCost() < stockBestCost) {
         _stagnateGen = 0;
     } else {
         _stagnateGen++;
@@ -87,7 +87,7 @@ void GA_EAX::SelectBest ()
 
 bool GA_EAX::ShouldTerminate ()
 {
-    if (_avgCost - GetBestIndi().GetCost() < 0.001) {
+    if (_avgCost - GetBestTour().GetCost() < 0.001) {
         return true;
     }
 
@@ -98,11 +98,11 @@ bool GA_EAX::ShouldTerminate ()
     return false;
 }
 
-GA_EAX::Indi::Indi ()
+GA_EAX::Tour::Tour ()
     : _n(0), _link(nullptr), _cost(std::numeric_limits<int>::max())
 {}
 
-GA_EAX::Indi::~Indi ()
+GA_EAX::Tour::~Tour ()
 {
     for (int i = 0; i < _n; ++i) {
         delete[] _link[i];
@@ -110,7 +110,7 @@ GA_EAX::Indi::~Indi ()
     delete[] _link;
 }
 
-void GA_EAX::Indi::Init (int n)
+void GA_EAX::Tour::Init (int n)
 {
     _n = n;
     _link = new int*[n];
@@ -119,7 +119,7 @@ void GA_EAX::Indi::Init (int n)
     }
 }
 
-GA_EAX::Indi& GA_EAX::Indi::operator= (const Indi& rhs)
+GA_EAX::Tour& GA_EAX::Tour::operator= (const Tour& rhs)
 {
     if (this != &rhs) {
         _n = rhs._n;
@@ -133,7 +133,7 @@ GA_EAX::Indi& GA_EAX::Indi::operator= (const Indi& rhs)
     return *this;
 }
 
-void GA_EAX::Indi::ComputeCost (const Evaluator* e)
+void GA_EAX::Tour::ComputeCost (const Evaluator* e)
 {
     _cost = 0;
     for (int i = 0; i < _n; ++i) {
@@ -141,7 +141,7 @@ void GA_EAX::Indi::ComputeCost (const Evaluator* e)
     }
 }
 
-void GA_EAX::Indi::FromArray (const Evaluator* e, const int* route)
+void GA_EAX::Tour::FromArray (const Evaluator* e, const int* route)
 {
     const int n = _n;
     for (int i = 1; i < n - 1; ++i) {
@@ -162,13 +162,27 @@ void GA_EAX::Indi::FromArray (const Evaluator* e, const int* route)
     ComputeCost(e);
 }
 
-void GA_EAX::Indi::FromFlipper (const Evaluator* e, const Flipper* f)
+void GA_EAX::Tour::FromFlipper (const Evaluator* e, const Flipper* f)
 {
     for (int i = 0; i < _n; ++i) {
         _link[i][0] = f->Prev(i);
         _link[i][1] = f->Next(i);
     }
     ComputeCost(e);
+}
+
+void GA_EAX::EdgeTriple::Reconnect (Tour& pa) const
+{
+    if (pa.GetPrev(_r1) == _r2) {
+        pa.SetPrev(_r1, _b1);
+    } else {
+        pa.SetNext(_r1, _b1);
+    }
+    if (pa.GetPrev(_r2) == _r1) {
+        pa.SetPrev(_r2, _b2);
+    } else {
+        pa.SetNext(_r2, _b2);
+    }
 }
 
 void GA_EAX::ABcycle::Iterator::Begin (const ABcycle* abc, bool reverse)
@@ -194,14 +208,15 @@ void GA_EAX::ABcycle::Iterator::Begin (const ABcycle* abc, bool reverse)
     }
 }
 
-bool GA_EAX::ABcycle::Iterator::End (int& b1, int& r1, int& r2, int& b2) const
+bool GA_EAX::ABcycle::Iterator::End (EdgeTriple& et) const
 {
     if (_i < (_len / 2)) {
         int i = _start + _step * _i;
-        b1 = _abc->GetCyc((i + _offset[0]) % _len);
-        r1 = _abc->GetCyc((i + _offset[1]) % _len);
-        r2 = _abc->GetCyc((i + _offset[2]) % _len);
-        b2 = _abc->GetCyc((i + _offset[3]) % _len);
+        int b1 = _abc->GetCity((i + _offset[0]) % _len);
+        int r1 = _abc->GetCity((i + _offset[1]) % _len);
+        int r2 = _abc->GetCity((i + _offset[2]) % _len);
+        int b2 = _abc->GetCity((i + _offset[3]) % _len);
+        et.Set(b1, r1, r2, b2);
         return true;
     }
     return false;
@@ -237,14 +252,12 @@ GA_EAX::ABcyleMgr::ABcyleMgr (const Evaluator *e) :
 
 GA_EAX::ABcyleMgr::~ABcyleMgr ()
 {
-    const int n = _numCity;
-
     for (int j = 0; j < _maxNumABcycle; ++j) {
         delete _ABcycleList[j];
     }
     delete[] _ABcycleList;
 
-    for (int j = 0; j < n; ++j) {
+    for (int j = 0; j < _numCity; ++j) {
         delete[] _overlapEdges[j];
     }
     delete[] _overlapEdges;
@@ -256,21 +269,18 @@ GA_EAX::ABcyleMgr::~ABcyleMgr ()
     delete[] _checkCycBuf1;
 }
 
-void GA_EAX::ABcyleMgr::Build (const Indi& pa1, const Indi& pa2, int nKid)
+void GA_EAX::ABcyleMgr::Build (const Tour& pa, const Tour& pb, int numKid)
 {
-    const int n = _numCity;
-
     _numABcycle = 0;
 
     _cycBuf1Num = 0;
     _cycBuf2Num = 0;
-
-    for (int j = 0; j < n; ++j) {
-        _overlapEdges[j][1] = pa1.GetPrev(j);
-        _overlapEdges[j][3] = pa1.GetNext(j);
+    for (int j = 0; j < _numCity; ++j) {
+        _overlapEdges[j][1] = pa.GetPrev(j);
+        _overlapEdges[j][3] = pa.GetNext(j);
         _overlapEdges[j][0] = 2;
-        _overlapEdges[j][2] = pa2.GetPrev(j);
-        _overlapEdges[j][4] = pa2.GetNext(j);
+        _overlapEdges[j][2] = pb.GetPrev(j);
+        _overlapEdges[j][4] = pb.GetNext(j);
 
         _cycBuf1[_cycBuf1Num++] = j;
         _cycBuf1Inv[_cycBuf1[j]] = j;
@@ -328,7 +338,7 @@ void GA_EAX::ABcyleMgr::Build (const Indi& pa1, const Indi& pa2, int nKid)
                                 std::swap(_overlapEdges[ci][posiCurr % 2 + 1],
                                           _overlapEdges[ci][posiCurr % 2 + 3]);
                             }
-                            if (!Build_0(1, nKid, posiCurr)) {
+                            if (!Build_0(1, numKid, posiCurr)) {
                                 goto LLL;
                             }
 
@@ -342,7 +352,7 @@ void GA_EAX::ABcyleMgr::Build (const Indi& pa1, const Indi& pa2, int nKid)
                         }
                         _checkCycBuf1[st] = posiCurr;
                     } else {
-                        if (!Build_0(2, nKid, posiCurr)) {
+                        if (!Build_0(2, numKid, posiCurr)) {
                             goto LLL;
                         }
 
@@ -360,7 +370,7 @@ void GA_EAX::ABcyleMgr::Build (const Indi& pa1, const Indi& pa2, int nKid)
                     std::swap(_overlapEdges[ci][posiCurr % 2 + 1],
                               _overlapEdges[ci][posiCurr % 2 + 3]);
                     if ((posiCurr - _checkCycBuf1[ci]) % 2 == 0) {
-                        if (!Build_0(1, nKid, posiCurr)) {
+                        if (!Build_0(1, numKid, posiCurr)) {
                             goto LLL;
                         }
 
@@ -375,7 +385,7 @@ void GA_EAX::ABcyleMgr::Build (const Indi& pa1, const Indi& pa2, int nKid)
                 }
             } else if (_overlapEdges[ci][0] == 1) {
                 if (ci == st) {
-                    if (!Build_0(1, nKid, posiCurr)) {
+                    if (!Build_0(1, numKid, posiCurr)) {
                         goto LLL;
                     }
 
@@ -402,7 +412,7 @@ void GA_EAX::ABcyleMgr::Build (const Indi& pa1, const Indi& pa2, int nKid)
             ci = _overlapEdges[pr][posiCurr % 2 + 1];
             _cycRoute[posiCurr] = ci;
             if (ci == st) {
-                if (!Build_0(1, nKid, posiCurr)) {
+                if (!Build_0(1, numKid, posiCurr)) {
                     goto LLL;
                 }
 
@@ -415,14 +425,14 @@ LLL:
     std::shuffle(_ABcycleList, _ABcycleList + _numABcycle, _eval->GetRandEngine());
 }
 
-bool GA_EAX::ABcyleMgr::Build_0 (const int stAppear, const int nKid, int& posiCurr)
+bool GA_EAX::ABcyleMgr::Build_0 (const int stAppear, const int numKid, int& posiCurr)
 {
     ABcycle* abc = _ABcycleList[_numABcycle];
     const int st = _cycRoute[posiCurr];
     int len = 0;
     int st_count = 0;
 
-    abc->SetCyc(len++, st);
+    abc->SetCity(len++, st);
     while (1) {
         posiCurr--;
         int ci = _cycRoute[posiCurr];
@@ -451,7 +461,7 @@ bool GA_EAX::ABcyleMgr::Build_0 (const int stAppear, const int nKid, int& posiCu
             fprintf(stderr, "ERROR: AB-cycle length reach max (%d)\n", abc->GetMaxLen());
             exit(1);
         }
-        abc->SetCyc(len++, ci);
+        abc->SetCity(len++, ci);
     }
 
     if (len <= 2) {
@@ -460,18 +470,18 @@ bool GA_EAX::ABcyleMgr::Build_0 (const int stAppear, const int nKid, int& posiCu
 
     abc->SetLen(len);
     if (posiCurr % 2 != 0) {
-        int stock = abc->GetCyc(0);
+        int stock = abc->GetCity(0);
         for (int j = 0; j < len - 1; j++) {
-            abc->SetCyc(j, abc->GetCyc(j + 1));
+            abc->SetCity(j, abc->GetCity(j + 1));
         }
-        abc->SetCyc(len - 1, stock);
+        abc->SetCity(len - 1, stock);
     }
 
     int diff = 0;
     for (int j = 0; j < len / 2; ++j) {
-        int a = abc->GetCyc(2 * j);
-        int b = abc->GetCyc((2 * j + 1) % len);
-        int c = abc->GetCyc((2 * j + 2) % len);
+        int a = abc->GetCity(2 * j);
+        int b = abc->GetCity((2 * j + 1) % len);
+        int c = abc->GetCity((2 * j + 2) % len);
         diff += _eval->GetCost(a, b) - _eval->GetCost(b, c);
     }
     abc->SetGain(diff);
@@ -484,112 +494,22 @@ bool GA_EAX::ABcyleMgr::Build_0 (const int stAppear, const int nKid, int& posiCu
         return false;
     }
 
-    if (_numABcycle >= nKid) {
+    if (_numABcycle >= numKid) {
         return false;
     }
 
     return true;
 }
 
-void GA_EAX::ABcyleMgr::ChangeIndi (int idx, bool reverse, Indi& pa1) const
+int GA_EAX::ABcyleMgr::Apply (int idx, bool reverse, Tour& pa) const
 {
     const ABcycle* abc = _ABcycleList[idx];
     ABcycle::Iterator iter;
-    int b1, r1, r2, b2;
-    for (iter.Begin(abc, reverse); iter.End(b1, r1, r2, b2); iter++) {
-        BreakEdge(b1, r1, r2, b2, pa1);
+    EdgeTriple et;
+    for (iter.Begin(abc, reverse); iter.End(et); iter++) {
+        et.Reconnect(pa);
     }
-}
-
-void GA_EAX::ABcyleMgr::BackToPa1 (int idx, const EdgeTuples& me, Indi& pa1) const
-{
-    for (auto it = me.rbegin(); it != me.rend(); ++it) {
-        int aa = std::get<0>(*it);
-        int a1 = std::get<1>(*it);
-        int bb = std::get<2>(*it);
-        int b1 = std::get<3>(*it);
-
-    #if 1
-        BreakEdge(a1, aa, bb, b1, pa1);
-        BreakEdge(bb, b1, a1, aa, pa1);
-    #else
-        if (pa1.GetPrev(aa) == bb) {
-            pa1.SetPrev(aa, a1);
-        } else {
-            pa1.SetNext(aa, a1);
-        }
-        if (pa1.GetPrev(b1) == a1) {
-            pa1.SetPrev(b1, bb);
-        } else {
-            pa1.SetNext(b1, bb);
-        }
-        if (pa1.GetPrev(bb) == aa) {
-            pa1.SetPrev(bb, b1);
-        } else {
-            pa1.SetNext(bb, b1);
-        }
-        if (pa1.GetPrev(a1) == b1) {
-            pa1.SetPrev(a1, aa);
-        } else {
-            pa1.SetNext(a1, aa);
-        }
-    #endif
-    }
-
-    ChangeIndi(idx, true /*reverse*/, pa1);
-}
-
-void GA_EAX::ABcyleMgr::GoToBest (int idx, const EdgeTuples& me, Indi& pa1) const
-{
-    ChangeIndi(idx, false /*reverse*/, pa1);
-
-    for (auto it = me.begin(); it != me.end(); ++it) {
-        int aa = std::get<0>(*it);
-        int bb = std::get<1>(*it);
-        int a1 = std::get<2>(*it);
-        int b1 = std::get<3>(*it);
-
-    #if 1
-        BreakEdge(a1, aa, bb, b1, pa1);
-        BreakEdge(aa, a1, b1, bb, pa1);
-    #else
-        if (pa1.GetPrev(aa) == bb) {
-            pa1.SetPrev(aa, a1);
-        } else {
-            pa1.SetNext(aa, a1);
-        }
-        if (pa1.GetPrev(bb) == aa) {
-            pa1.SetPrev(bb, b1);
-        } else {
-            pa1.SetNext(bb, b1);
-        }
-        if (pa1.GetPrev(a1) == b1) {
-            pa1.SetPrev(a1, aa);
-        } else {
-            pa1.SetNext(a1, aa);
-        }
-        if (pa1.GetPrev(b1) == a1) {
-            pa1.SetPrev(b1, bb);
-        } else {
-            pa1.SetNext(b1, bb);
-        }
-    #endif
-    }
-}
-
-/* r1--r2 will be broken, b1--r1 and r2--b2 will be connected. */
-void GA_EAX::ABcyleMgr::BreakEdge (int b1, int r1, int r2, int b2, Indi& pa1)
-{
-    if (pa1.GetPrev(r1) == r2) {
-        pa1.SetPrev(r1, b1);
-    } else {
-        pa1.SetNext(r1, b1);
-    }
-    if (pa1.GetPrev(r2) == r1) {
-        pa1.SetPrev(r2, b2);
-    } else {
-        pa1.SetNext(r2, b2);
-    }
+    return abc->GetGain();
 }
 
 GA_EAX::Cross::Cross (const Evaluator* e)
@@ -597,11 +517,9 @@ GA_EAX::Cross::Cross (const Evaluator* e)
 {
     const int n = _numCity;
 
-    _pa1City = new int[n];
-    _pa1Pos = new int[n];
+    _city = new int[n];
+    _posi = new int[n];
     _abcMgr = new ABcyleMgr(_eval);
-    _modiEdges.resize(n);
-    _bestModiEdges.resize(n);
 
     _segment = new int*[n];
     for (int j = 0; j < n; ++j) {
@@ -627,8 +545,8 @@ GA_EAX::Cross::~Cross ()
 {
     const int n = _numCity;
 
-    delete[] _pa1City;
-    delete[] _pa1Pos;
+    delete[] _city;
+    delete[] _posi;
     delete _abcMgr;
 
     for (int j = 0; j < n; ++j) {
@@ -648,92 +566,115 @@ GA_EAX::Cross::~Cross ()
     delete[] _listCenterUnit;
 }
 
-void GA_EAX::Cross::DoIt (Indi& pa1, Indi& pa2, int nKid)
+void GA_EAX::Cross::DoIt (Tour& pa, Tour& pb, int numKid)
 {
-    InitPa1CityPos(pa1);
-    _abcMgr->Build(pa1, pa2, nKid);
+    _abcMgr->Build(pa, pb, numKid);
 
-    /* main loop to generate nKid kids */
-    int bestGain = 0, bestAbcIdx = -1, gain;
-    nKid = std::min(nKid, _abcMgr->GetNumABCycle());
-    for (int j = 0; j < nKid; ++j) {
-        gain = 0;
-        _numSPL = 0;
+    InitCityPos(pa);
 
-        _abcMgr->ChangeIndi(j, false /*reverse*/, pa1);
-        UpdateSeg(j);
-        gain += _abcMgr->GetABCycle(j)->GetGain();
+    const int numAbc = std::min(numKid, _abcMgr->GetNumCycle());
+    int bestGain = 0, bestIdx = -1;
 
+    for (int idx = 0; idx < numAbc; ++idx) {
+        int gain = _abcMgr->Apply(idx, false /*reverse*/, pa);
+
+        InitSegment(idx);
         MakeUnit();
-        gain += MakeCompleteSol(pa1);
-        pa1.SetGain(gain);
+        gain += MakeComplete(pa);
+        pa.SetGain(gain);
 
         if (bestGain < gain) {
-            bestAbcIdx = j;
             bestGain = gain;
-            _bestModiEdges.clear();
-            for (const auto& me : _modiEdges) {
-                _bestModiEdges.push_back(me);
-            }
+            bestIdx = idx;
+            _bestModiEdges = _modiEdges;
         }
 
-        _abcMgr->BackToPa1(j, _modiEdges, pa1);
-        pa1.SetGain(-gain);
+        UndoApply(idx, _modiEdges, pa);
+        pa.SetGain(-gain);
     }
 
-    if (bestAbcIdx != -1) {
-        _abcMgr->GoToBest(bestAbcIdx, _bestModiEdges, pa1);
-        pa1.SetGain(bestGain);
+    if (bestIdx != -1) {
+        DoApply(bestIdx, _bestModiEdges, pa);
+        pa.SetGain(bestGain);
     }
 }
 
-void GA_EAX::Cross::InitPa1CityPos (const Indi& pa1) const
+void GA_EAX::Cross::InitCityPos (const Tour& pa) const
 {
-    const int n = _numCity;
-    int prev = -1, curr = -1, next = 0;
-    for (int i = 0; i < n; ++i) {
+    int prev, curr = -1, next = 0;
+    for (int i = 0; i < _numCity; ++i) {
         prev = curr;
         curr = next;
-        if (pa1.GetPrev(curr) != prev) {
-            next = pa1.GetPrev(curr);
+        if (pa.GetPrev(curr) != prev) {
+            next = pa.GetPrev(curr);
         } else {
-            next = pa1.GetNext(curr);
+            next = pa.GetNext(curr);
         }
-        _pa1City[i] = curr;
-        _pa1Pos[curr] = i;
+        _city[i] = curr;
+        _posi[curr] = i;
     }
 }
 
-void GA_EAX::Cross::UpdateSeg (int idx)
+void GA_EAX::Cross::UndoApply (int idx, const std::vector<EdgeTriple>& mts, Tour& pa) const
 {
-    const ABcycle* abc = _abcMgr->GetABCycle(idx);
+    int aa, a1, bb, b1;
+    for (auto it = mts.rbegin(); it != mts.rend(); ++it) {
+        it->Get(aa, a1, bb, b1);
+        EdgeTriple(a1, aa, bb, b1).Reconnect(pa);
+        EdgeTriple(bb, b1, a1, aa).Reconnect(pa);
+    }
+    _abcMgr->Apply(idx, true /*reverse*/, pa);
+}
+
+void GA_EAX::Cross::DoApply (int idx, const std::vector<EdgeTriple>& mts, Tour& pa) const
+{
+    int aa, bb, a1, b1;
+    _abcMgr->Apply(idx, false /*reverse*/, pa);
+    for (auto it = mts.begin(); it != mts.end(); ++it) {
+        it->Get(aa, bb, a1, b1);
+        EdgeTriple(a1, aa, bb, b1).Reconnect(pa);
+        EdgeTriple(aa, a1, b1, bb).Reconnect(pa);
+    }
+}
+
+void GA_EAX::Cross::InitSegment (int idx)
+{
+    _numSPL = 0;
+
+    const ABcycle* abc = _abcMgr->GetCycle(idx);
     const int n = _numCity;
     ABcycle::Iterator iter;
+    EdgeTriple et;
     int b1, r1, r2, b2;
+    int p1, p2;
 
-    for (iter.Begin(abc, false /* reverse */); iter.End(b1, r1, r2, b2); iter++) {
+    for (iter.Begin(abc, false /* reverse */); iter.End(et); iter++) {
         if (_numSPL >= n) {
-            fprintf(stderr, "ERROR: numSPL reach max (%d) in UpdateSeg\n", n);
+            fprintf(stderr, "ERROR: numSPL reach max (%d) when init segments\n", n);
             exit(1);
         }
 
-        if (_pa1Pos[r1] == 0 && _pa1Pos[r2] == n - 1) {
-            _segPosiList[_numSPL++] = _pa1Pos[r1];
-        } else if (_pa1Pos[r1] == n - 1 && _pa1Pos[r2] == 0) {
-            _segPosiList[_numSPL++] = _pa1Pos[r2];
-        } else if (_pa1Pos[r1] < _pa1Pos[r2]) {
-            _segPosiList[_numSPL++] = _pa1Pos[r2];
-        } else if (_pa1Pos[r2] < _pa1Pos[r1]) {
-            _segPosiList[_numSPL++] = _pa1Pos[r1];
+        et.Get(b1, r1, r2, b2);
+        p1 = _posi[r1];
+        p2 = _posi[r2];
+
+        if (p1 == 0 && p2 == n - 1) {
+            _segPosiList[_numSPL++] = p1;
+        } else if (p1 == n - 1 && p2 == 0) {
+            _segPosiList[_numSPL++] = p2;
+        } else if (p1 < p2) {
+            _segPosiList[_numSPL++] = p2;
+        } else if (p2 < p1) {
+            _segPosiList[_numSPL++] = p1;
         } else {
-            fprintf(stderr, "ERROR: invalid else branch in UpdateSeg\n");
+            fprintf(stderr, "ERROR: invalid else branch when init segments\n");
             exit(1);
         }
 
-        _linkBPosi[_pa1Pos[r1]][1] = _linkBPosi[_pa1Pos[r1]][0];
-        _linkBPosi[_pa1Pos[r2]][1] = _linkBPosi[_pa1Pos[r2]][0];
-        _linkBPosi[_pa1Pos[r1]][0] = _pa1Pos[b1];
-        _linkBPosi[_pa1Pos[r2]][0] = _pa1Pos[b2];
+        _linkBPosi[p1][1] = _linkBPosi[p1][0];
+        _linkBPosi[p2][1] = _linkBPosi[p2][0];
+        _linkBPosi[p1][0] = _posi[b1];
+        _linkBPosi[p2][0] = _posi[b2];
     }
 }
 
@@ -845,7 +786,7 @@ void GA_EAX::Cross::MakeUnit ()
     _numSeg = tmpNumSeg + 1;
 }
 
-int GA_EAX::Cross::MakeCompleteSol (Indi& pa1)
+int GA_EAX::Cross::MakeComplete (Tour& pa)
 {
     _modiEdges.clear();
 
@@ -869,7 +810,7 @@ int GA_EAX::Cross::MakeCompleteSol (Indi& pa1)
         for (int s = 0; s < _numSeg; ++s) {
             if (_segUnit[s] == center_un) {
                 int posi = _segment[s][0];
-                st = _pa1City[posi];
+                st = _city[posi];
             }
         }
         if (st == -1) {
@@ -887,10 +828,10 @@ int GA_EAX::Cross::MakeCompleteSol (Indi& pa1)
             _listCenterUnit[numEleInCU] = curr;
             ++numEleInCU;
 
-            if (pa1.GetPrev(curr) != prev) {
-                next = pa1.GetPrev(curr);
+            if (pa.GetPrev(curr) != prev) {
+                next = pa.GetPrev(curr);
             } else {
-                next = pa1.GetNext(curr);
+                next = pa.GetNext(curr);
             }
 
             if (next == st) {
@@ -926,7 +867,7 @@ int GA_EAX::Cross::MakeCompleteSol (Indi& pa1)
                     for (int j1 = 0; j1 < 2; ++j1) {
                         b = _listCenterUnit[s - 1 + 2 * j1];
                         for (int j2 = 0; j2 < 2; ++j2) {
-                            d = (j2 == 0)? pa1.GetPrev(c) : pa1.GetNext(c);
+                            d = (j2 == 0)? pa.GetPrev(c) : pa.GetNext(c);
                             diff = _eval->GetCost(a, b) + _eval->GetCost(c, d)
                                    - _eval->GetCost(a, c) - _eval->GetCost(b, d);
                             if (diff > max_diff) {
@@ -964,7 +905,7 @@ int GA_EAX::Cross::MakeCompleteSol (Indi& pa1)
                     aa = a;
                     bb = b;
                     a1 = j;
-                    b1 = pa1.GetPrev(j);
+                    b1 = pa.GetPrev(j);
                     break;
                 }
             }
@@ -972,36 +913,12 @@ int GA_EAX::Cross::MakeCompleteSol (Indi& pa1)
                        - _eval->GetCost(a, a1) - _eval->GetCost(b, b1);
         }
 
-    #if 1
-        ABcyleMgr::BreakEdge(a1, aa, bb, b1, pa1);
-        ABcyleMgr::BreakEdge(aa, a1, b1, bb, pa1);
-    #else
-        if (pa1.GetPrev(aa) == bb) {
-            pa1.SetPrev(aa, a1);
-        } else {
-            pa1.SetNext(aa, a1);
-        }
-        if (pa1.GetPrev(bb) == aa) {
-            pa1.SetPrev(bb, b1);
-        } else {
-            pa1.SetNext(bb, b1);
-        }
-        if (pa1.GetPrev(a1) == b1) {
-            pa1.SetPrev(a1, aa);
-        } else {
-            pa1.SetNext(a1, aa);
-        }
-        if (pa1.GetPrev(b1) == a1) {
-            pa1.SetPrev(b1, bb);
-        } else {
-            pa1.SetNext(b1, bb);
-        }
-    #endif
-
-        _modiEdges.push_back(std::make_tuple(aa, bb, a1, b1));
+        EdgeTriple(a1, aa, bb, b1).Reconnect(pa);
+        EdgeTriple(aa, a1, b1, bb).Reconnect(pa);
+        _modiEdges.push_back(EdgeTriple(aa, bb, a1, b1));
         gainModi += max_diff;
 
-        int posi_a1 = _pa1Pos[a1];
+        int posi_a1 = _posi[a1];
         int select_un = -1;
         for (int s = 0; s < _numSeg; ++s) {
             if (_segment[s][0] <= posi_a1 && posi_a1 <= _segment[s][1]) {

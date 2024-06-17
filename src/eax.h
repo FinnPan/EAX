@@ -1,7 +1,6 @@
 #ifndef __THU_EAX_H
 #define __THU_EAX_H
 
-#include <tuple>
 #include "util.h"
 
 namespace thu { /* tsp heuristics */
@@ -10,26 +9,26 @@ namespace thu { /* tsp heuristics */
  * Some codes are adapted from GA-EAX. */
 class GA_EAX {
 public:
-    GA_EAX (const Evaluator* eval, int nPop = 100, int nKid = 30);
+    GA_EAX (const Evaluator* eval, int numPop = 100, int numKid = 30);
     ~GA_EAX ();
     void DoIt ();
     void SetVerbose (bool s) { _verbose = s; }
     int GetPopNum () const { return _numPop; }
     int GetKidNum () const { return _numKid; }
-    int GetBestCost () const { return GetBestIndi().GetCost(); }
+    int GetBestCost () const { return GetBestTour().GetCost(); }
     int GetGenNum () const { return _numGen; }
     double GetAvgCost () const { return _avgCost; }
 
 private:
-    /* An individual based on double-linked list. */
-    class Indi {
+    /* A tour based on double-linked list. */
+    class Tour {
     public:
-        Indi ();
-        ~Indi ();
-        Indi (const Indi&) = delete;
-        Indi& operator= (const Indi&);
-        Indi (Indi&&) = delete;
-        Indi& operator= (Indi&&) = delete;
+        Tour ();
+        ~Tour ();
+        Tour (const Tour&) = delete;
+        Tour& operator= (const Tour&);
+        Tour (Tour&&) = delete;
+        Tour& operator= (Tour&&) = delete;
         void Init (int n);
         int GetCost () const { return _cost; }
         void SetGain (int g) { _cost -= g; }
@@ -46,17 +45,35 @@ private:
         int   _cost;
     };
 
+    /* 3 edges: _b1--_r1, _r1--_r2, _r2--_b2. Maybe B+A+B or A+B+A. */
+    class EdgeTriple {
+    public:
+        explicit EdgeTriple (int b1 = -1, int r1 = -1, int r2 = -1, int b2 = -1) {
+            Set(b1, r1, r2, b2);
+        }
+        ~EdgeTriple () = default;
+        void Get (int& b1, int& r1, int& r2, int& b2) const {
+            b1 = _b1; r1 = _r1; r2 = _r2; b2 = _b2;
+        }
+        void Set (int b1, int r1, int r2, int b2) {
+            _b1 = b1; _r1 = r1; _r2 = r2; _b2 = b2;
+        }
+        /* _r1--_r2 will be broken, _b1--_r1 and _r2--_b2 will be connected. */
+        void Reconnect (Tour& pa) const;
+    private:
+        int _b1, _r1, _r2, _b2;
+    };
+
     /* A cycle, such that A edges and B edges are alternately linked. */
     class ABcycle {
     public:
-        /* Iterate all B+A+B or A+B+A edge-tuples in ABcycle. */
+        /* Iterate all edge-triples in ABcycle. */
         class Iterator {
         public:
             Iterator () = default;
             ~Iterator () = default;
             void Begin (const ABcycle* abc, bool reverse);
-            /* return edge-tuples: b1--r1, r1--r2, r2--b2 */
-            bool End (int& b1, int& r1, int& r2, int& b2) const;
+            bool End (EdgeTriple& et) const;
             void operator++ (int) { ++_i; }
         private:
             const ABcycle* _abc;
@@ -68,8 +85,8 @@ private:
         int GetMaxLen () const { return _maxLen; }
         int GetLen () const { return _len; }
         void SetLen (int l) { _len = l; }
-        int GetCyc (int i) const { return _cyc[i]; }
-        void SetCyc (int i, int v) { _cyc[i] = v; }
+        int GetCity (int i) const { return _cyc[i]; }
+        void SetCity (int i, int v) { _cyc[i] = v; }
         int GetGain () const { return _gain; }
         void SetGain (int g) { _gain = g; }
     private:
@@ -81,23 +98,17 @@ private:
         int* _cyc;
     };
 
-    using EdgeTuple = std::tuple<int, int, int, int>;
-    using EdgeTuples = std::vector<EdgeTuple>;
-
-    /* Build all AB-cycles from pa1 and pa2. */
+    /* Build all AB-cycles from pa and pb. */
     class ABcyleMgr {
     public:
         explicit ABcyleMgr (const Evaluator *eval);
         ~ABcyleMgr ();
-        void Build (const Indi& pa1, const Indi& pa2, int nKid);
-        const ABcycle* GetABCycle (int idx) const { return _ABcycleList[idx]; }
-        int GetNumABCycle () const { return _numABcycle; }
-        void ChangeIndi (int idx, bool reverse, Indi& pa1) const;
-        void BackToPa1 (int idx, const EdgeTuples& me, Indi& pa1) const;
-        void GoToBest (int idx, const EdgeTuples& me, Indi& pa1) const;
-        static void BreakEdge (int b1, int r1, int r2, int b2, Indi& pa1);
+        void Build (const Tour& pa, const Tour& pb, int numKid);
+        const ABcycle* GetCycle (int idx) const { return _ABcycleList[idx]; }
+        int GetNumCycle () const { return _numABcycle; }
+        int Apply (int idx, bool reverse, Tour& pa) const;
     private:
-        bool Build_0 (const int stAppear, const int nKid, int& posiCurr);
+        bool Build_0 (const int stAppear, const int numKid, int& posiCurr);
     private:
         const Evaluator *_eval;
         const int _numCity;
@@ -127,18 +138,20 @@ private:
     public:
         explicit Cross (const Evaluator* e);
         ~Cross ();
-        void DoIt (Indi& pa1, Indi& pa2, int nKid);
+        void DoIt (Tour& pa, Tour& pb, int numKid);
     private:
-        void InitPa1CityPos (const Indi& pa1) const;
-        void UpdateSeg (int idx);
+        void InitCityPos (const Tour& pa) const;
+        void UndoApply (int idx, const std::vector<EdgeTriple>&, Tour& pa) const;
+        void DoApply (int idx, const std::vector<EdgeTriple>&, Tour& pa) const;
+        void InitSegment (int idx);
         void MakeUnit ();
-        int MakeCompleteSol (Indi& pa1);
+        int MakeComplete (Tour& pa);
     private:
         const Evaluator *_eval;
         const int _numCity;
-        int *_pa1City, *_pa1Pos;
+        int *_city, *_posi;
         ABcyleMgr* _abcMgr;
-        EdgeTuples _modiEdges, _bestModiEdges;
+        std::vector<EdgeTriple> _modiEdges, _bestModiEdges;
 
         int** _segment;
         int _numSeg;
@@ -157,14 +170,14 @@ private:
 private:
     void SelectBest ();
     bool ShouldTerminate ();
-    Indi& GetBestIndi () const { return _pop[_numPop]; }
+    Tour& GetBestTour () const { return _pop[_numPop]; }
 private:
     const Evaluator *_eval;
     const int        _numPop;
     const int        _numKid;
     TwoOpt          *_2opt;
     Cross           *_cross;
-    Indi            *_pop;
+    Tour            *_pop;
     int             *_matingSeq;
     bool             _verbose;
     int              _numGen;
