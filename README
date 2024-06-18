@@ -1,8 +1,8 @@
 ================================================================================
 tsphurt focuses on robust and readable implementations of TSP heuristics:
-  1. 2-Opt (2-exchange local search) : Done!
-  2. GA-EAX (GA with Edge Assembly Crossover) : Doing.
-  3. CLK (Chained Lin-Kernighan) : Todo.
+  1. 2-Opt (2-exchange local search)
+  2. GA-EAX (GA with Edge Assembly Crossover)
+  3. CLK (Chained Lin-Kernighan)
 ================================================================================
 
 Contents of the directory tree are below.

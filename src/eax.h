@@ -123,14 +123,6 @@ private:
         int* _checkCycBuf1;
     };
 
-    /* Segment representation of an intermediate solution. */
-    struct Segment {
-        int segId;
-        int beginPos, endPos;
-        int prevPos, nextPos;
-        int tourId;
-    };
-
     /* Edge Assembly Crossover.
      * For simplicity, Diversity preservation by Entropy and E-sets by Block2
      * are removed, even if they help achieve the optimal solution. */
@@ -144,8 +136,8 @@ private:
         void UndoApply (int idx, const std::vector<EdgeTriple>&, Tour& pa) const;
         void DoApply (int idx, const std::vector<EdgeTriple>&, Tour& pa) const;
         void InitSegment (int idx);
-        void MakeUnit ();
-        int MakeComplete (Tour& pa);
+        void MakePartialTour ();
+        int MakeCompleteTour (Tour& pa);
     private:
         const Evaluator *_eval;
         const int _numCity;
@@ -153,15 +145,25 @@ private:
         ABcyleMgr* _abcMgr;
         std::vector<EdgeTriple> _modiEdges, _bestModiEdges;
 
-        int** _segment;
+        /* link-posi and segment at a poistion */
+        struct PosiInfo {
+            int linkPosiB1, linkPosiB2;
+            int linkPosiA;
+            int segId;
+            void SetLinkPosiB1 (int b) { linkPosiB2 = linkPosiB1; linkPosiB1 = b; }
+            void SetSegIdAndLinkPosiA (int i, int a) { segId = i; linkPosiA = a; }
+        };
+
+        /* Segment representation for tour parts of a sub-tour */
+        struct Segment {
+            int subTourId;
+            int begPosi, endPosi;
+        };
+
         int _numSeg;
-        int* _segUnit;
+        Segment* _segment;
+        PosiInfo* _posiInfo;
         int _numUnit;
-        int* _segPosiList;
-        int _numSPL;
-        int* _linkAPosi;
-        int** _linkBPosi;
-        int* _posiSeg;
         int* _numElementInUnit;
         int* _centerUnit;
         int* _listCenterUnit;
