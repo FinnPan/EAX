@@ -132,15 +132,16 @@ private:
         ~Cross ();
         void DoIt (Tour& pa, Tour& pb, int numKid);
     private:
-        void InitCityPos (const Tour& pa) const;
+        void InitCityPosi (const Tour& pa) const;
         void UndoApply (int idx, const std::vector<EdgeTriple>&, Tour& pa) const;
         void DoApply (int idx, const std::vector<EdgeTriple>&, Tour& pa) const;
-        void InitSegment (int idx);
-        void MakePartialTour ();
+        void MakeSegment (int idx);
+        void MakeUnit ();
         int MakeCompleteTour (Tour& pa);
     private:
         const Evaluator *_eval;
         const int _numCity;
+        const int _maxNumNear;
         int *_city, *_posi;
         ABcyleMgr* _abcMgr;
         std::vector<EdgeTriple> _modiEdges, _bestModiEdges;
@@ -154,9 +155,9 @@ private:
             void SetSegIdAndLinkPosiA (int i, int a) { segId = i; linkPosiA = a; }
         };
 
-        /* Segment representation for tour parts of a sub-tour */
+        /* Segment representation for tour parts of a sub-tour (unit) */
         struct Segment {
-            int subTourId;
+            int unitId;
             int begPosi, endPosi;
         };
 
@@ -164,9 +165,9 @@ private:
         Segment* _segment;
         PosiInfo* _posiInfo;
         int _numUnit;
-        int* _numElementInUnit;
-        int* _centerUnit;
-        int* _listCenterUnit;
+        int* _numEleInUnit;
+        int* _cityInCU;
+        int* _routeOfCU;
     };
 
 private:

@@ -513,8 +513,13 @@ int GA_EAX::ABcyleMgr::Apply (int idx, bool reverse, Tour& pa) const
 }
 
 GA_EAX::Cross::Cross (const Evaluator* e)
-    : _eval(e), _numCity(e->GetNumCity())
+    : _eval(e), _numCity(e->GetNumCity()), _maxNumNear(10)
 {
+    if (_maxNumNear > _eval->GetMaxNumNear()) {
+        fprintf(stderr, "ERROR: invalid _maxNumNear (%d)\n", _maxNumNear);
+        exit(1);
+    }
+
     const int n = _numCity;
 
     _city = new int[n];
@@ -523,9 +528,11 @@ GA_EAX::Cross::Cross (const Evaluator* e)
 
     _segment = new Segment[n];
     _posiInfo = new PosiInfo[n];
-    _numElementInUnit = new int[n];
-    _centerUnit = new int[n];
-    _listCenterUnit = new int[n + 2];
+    _numEleInUnit = new int[n];
+    _cityInCU = new int[n];
+    _routeOfCU = new int[n];
+
+    memset(_cityInCU, 0, sizeof(_cityInCU[0]) * n);
 }
 
 GA_EAX::Cross::~Cross ()
@@ -536,32 +543,32 @@ GA_EAX::Cross::~Cross ()
 
     delete[] _segment;
     delete[] _posiInfo;
-    delete[] _numElementInUnit;
-    delete[] _centerUnit;
-    delete[] _listCenterUnit;
+    delete[] _numEleInUnit;
+    delete[] _cityInCU;
+    delete[] _routeOfCU;
 }
 
 void GA_EAX::Cross::DoIt (Tour& pa, Tour& pb, int numKid)
 {
     _abcMgr->Build(pa, pb, numKid);
 
-    InitCityPos(pa);
+    InitCityPosi(pa);
 
     const int numAbc = std::min(numKid, _abcMgr->GetNumCycle());
-    int bestGain = 0, bestIdx = -1;
+    int bestIdx = -1, bestGain = 0;
 
     for (int idx = 0; idx < numAbc; ++idx) {
         int gain = _abcMgr->Apply(idx, false /*reverse*/, pa);
 
-        InitSegment(idx);
-        MakePartialTour();
+        MakeSegment(idx);
+        MakeUnit();
         gain += MakeCompleteTour(pa);
         pa.SetGain(gain);
 
         if (bestGain < gain) {
-            bestGain = gain;
             bestIdx = idx;
             _bestModiEdges = _modiEdges;
+            bestGain = gain;
         }
 
         UndoApply(idx, _modiEdges, pa);
@@ -574,7 +581,7 @@ void GA_EAX::Cross::DoIt (Tour& pa, Tour& pb, int numKid)
     }
 }
 
-void GA_EAX::Cross::InitCityPos (const Tour& pa) const
+void GA_EAX::Cross::InitCityPosi (const Tour& pa) const
 {
     int prev, curr = -1, next = 0;
     for (int i = 0; i < _numCity; ++i) {
@@ -612,7 +619,7 @@ void GA_EAX::Cross::DoApply (int idx, const std::vector<EdgeTriple>& mts, Tour& 
     }
 }
 
-void GA_EAX::Cross::InitSegment (int idx)
+void GA_EAX::Cross::MakeSegment (int idx)
 {
     _numSeg = 0;
 
@@ -626,7 +633,7 @@ void GA_EAX::Cross::InitSegment (int idx)
 
     for (iter.Begin(abc, false /* reverse */); iter.End(et); iter++) {
         if (_numSeg >= n) {
-            fprintf(stderr, "ERROR: numSPL reach max (%d) when init segments\n", n);
+            fprintf(stderr, "ERROR: #segments reach max (%d)\n", n);
             exit(1);
         }
 
@@ -658,7 +665,7 @@ void GA_EAX::Cross::InitSegment (int idx)
 
     if (!hasZeroPosi) {
         if (_numSeg >= n) {
-            fprintf(stderr, "ERROR: numSPL reach max (%d) in MakeUnit", n);
+            fprintf(stderr, "ERROR: #segments reach max (%d)\n", n);
             exit(1);
         }
         _segment[_numSeg++].begPosi = 0;
@@ -677,38 +684,37 @@ void GA_EAX::Cross::InitSegment (int idx)
     _segment[_numSeg - 1].endPosi = n - 1;
 }
 
-void GA_EAX::Cross::MakePartialTour ()
+void GA_EAX::Cross::MakeUnit ()
 {
     _numUnit = 0;
 
-    int p_st, p1, p2, p_next, p_pre, flag, segId;
-
     for (int s = 0; s < _numSeg; ++s) {
-        _segment[s].subTourId = -1;
-        p1 = _segment[s].begPosi;
-        p2 = _segment[s].endPosi;
+        _segment[s].unitId = -1;
+        int p1 = _segment[s].begPosi;
+        int p2 = _segment[s].endPosi;
         _posiInfo[p1].SetSegIdAndLinkPosiA(s, p2);
         _posiInfo[p2].SetSegIdAndLinkPosiA(s, p1);
     }
 
+    int p_st, p1, p2, p_pre, p_next;
     while (1) {
-        flag = 0;
+        bool foundUninit = false;
         for (int s = 0; s < _numSeg; ++s) {
-            if (_segment[s].subTourId == -1) {
+            if (_segment[s].unitId == -1) {
                 p_st = _segment[s].begPosi;
-                p_pre = -1;
                 p1 = p_st;
-                flag = 1;
+                p_pre = -1;
+                foundUninit = true;
                 break;
             }
         }
-        if (flag == 0) {
+        if (!foundUninit) {
             break;
         }
 
         while (1) {
-            segId = _posiInfo[p1].segId;
-            _segment[segId].subTourId = _numUnit;
+            int segId = _posiInfo[p1].segId;
+            _segment[segId].unitId = _numUnit;
 
             p2 = _posiInfo[p1].linkPosiA;
             p_next = _posiInfo[p2].linkPosiB1;
@@ -728,51 +734,46 @@ void GA_EAX::Cross::MakePartialTour ()
         }
     }
 
-    for (int s = 0; s < _numUnit; ++s) {
-        _numElementInUnit[s] = 0;
-    }
-
-    int unitNum = -1;
-    int tmpNumSeg = -1;
+    int unitId = -1, segId = -1;
     for (int s = 0; s < _numSeg; ++s) {
-        if (_segment[s].subTourId != unitNum) {
-            ++tmpNumSeg;
-            _segment[tmpNumSeg].begPosi = _segment[s].begPosi;
-            _segment[tmpNumSeg].endPosi = _segment[s].endPosi;
-            unitNum = _segment[s].subTourId;
-            _segment[tmpNumSeg].subTourId = unitNum;
-            _numElementInUnit[unitNum] += _segment[s].endPosi - _segment[s].begPosi + 1;
+        if (_segment[s].unitId != unitId) {
+            ++segId;
+            _segment[segId] = _segment[s];
+            unitId = _segment[s].unitId;
         } else {
-            _segment[tmpNumSeg].endPosi = _segment[s].endPosi;
-            _numElementInUnit[unitNum] += _segment[s].endPosi - _segment[s].begPosi + 1;
+            _segment[segId].endPosi = _segment[s].endPosi;
         }
     }
-    _numSeg = tmpNumSeg + 1;
+    _numSeg = segId + 1;
+
+    for (int s = 0; s < _numUnit; ++s) {
+        _numEleInUnit[s] = 0;
+    }
+    for (int s = 0; s < _numSeg; ++s) {
+        unitId = _segment[s].unitId;
+        _numEleInUnit[unitId] += _segment[s].endPosi - _segment[s].begPosi + 1;
+    }
 }
 
 int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
 {
     _modiEdges.clear();
 
-    int gainModi = 0;
-    constexpr int NearMaxDef = 10;
-    int center_un = 0;
-    int numEleInCU = 0;
-
-    int st, prev, curr, next, a, b, c, d, aa = 0, bb = 0, a1 = 0, b1 = 0;
+    int gain = 0;
 
     while (_numUnit != 1) {
-        int min_unit_city = _numCity + 12345;
+        int cu = -1;
+        int minNumEle = std::numeric_limits<int>::max();
         for (int u = 0; u < _numUnit; ++u) {
-            if (_numElementInUnit[u] < min_unit_city) {
-                center_un = u;
-                min_unit_city = _numElementInUnit[u];
+            if (_numEleInUnit[u] < minNumEle) {
+                cu = u;
+                minNumEle = _numEleInUnit[u];
             }
         }
 
-        st = -1;
+        int st = -1;
         for (int s = 0; s < _numSeg; ++s) {
-            if (_segment[s].subTourId == center_un) {
+            if (_segment[s].unitId == cu) {
                 int posi = _segment[s].begPosi;
                 st = _city[posi];
             }
@@ -782,73 +783,59 @@ int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
             exit(1);
         }
 
-        curr = -1;
-        next = st;
-        numEleInCU = 0;
+        int numEleInCU = 0;
+        int curr = -1, next = st;
         while (1) {
-            prev = curr;
+            int prev = curr;
             curr = next;
-            _centerUnit[curr] = 1;
-            _listCenterUnit[numEleInCU] = curr;
-            ++numEleInCU;
-
+            _cityInCU[curr] = 1;
+            _routeOfCU[numEleInCU++] = curr;
             if (pa.GetPrev(curr) != prev) {
                 next = pa.GetPrev(curr);
             } else {
                 next = pa.GetNext(curr);
             }
-
             if (next == st) {
                 break;
             }
         }
-        _listCenterUnit[numEleInCU] = _listCenterUnit[0];
-        _listCenterUnit[numEleInCU + 1] = _listCenterUnit[1];
 
-        if (numEleInCU != _numElementInUnit[center_un]) {
+        if (numEleInCU != _numEleInUnit[cu]) {
             fprintf(stderr, "ERROR: invalid numEleInCU (%d)\n", numEleInCU);
             exit(1);
         }
 
-        int max_diff = std::numeric_limits<int>::min();
-        int diff = 0;
-        a1 = -1;
-        b1 = -1;
-        /* N_near (see Step 5.3 in Section 2.2 of the Online Supplement)
-         * nearMax must be smaller than or equal to eva->_maxNumNear (Evaluator) */
-        if (NearMaxDef > _eval->GetMaxNumNear()) {
-            fprintf(stderr, "ERROR: invalid NearMaxDef (%d)\n", NearMaxDef);
-            exit(1);
-        }
-        int nearMax = NearMaxDef;
+        int numNear = _maxNumNear;
+        int aa = -1, bb = -1, a1 = -1, b1 = -1;
+        int maxDiff = std::numeric_limits<int>::min();
 
     RESTART:;
         for (int s = 1; s <= numEleInCU; ++s) {
-            a = _listCenterUnit[s];
-            for (int near_num = 0; near_num < nearMax; ++near_num) {
-                c = _eval->GetNear(a, near_num);
-                if (_centerUnit[c] == 0) {
+            int a = _routeOfCU[s % numEleInCU];
+            for (int n = 0; n < numNear; ++n) {
+                int c = _eval->GetNear(a, n);
+                if (_cityInCU[c] == 0) {
                     for (int j1 = 0; j1 < 2; ++j1) {
-                        b = _listCenterUnit[s - 1 + 2 * j1];
+                        int b = _routeOfCU[(s - 1 + 2 * j1) % numEleInCU];
                         for (int j2 = 0; j2 < 2; ++j2) {
-                            d = (j2 == 0)? pa.GetPrev(c) : pa.GetNext(c);
-                            diff = _eval->GetCost(a, b) + _eval->GetCost(c, d)
-                                   - _eval->GetCost(a, c) - _eval->GetCost(b, d);
-                            if (diff > max_diff) {
+                            int d = (j2 == 0)? pa.GetPrev(c) : pa.GetNext(c);
+                            int diff = _eval->GetCost(a, b) + _eval->GetCost(c, d)
+                                     - _eval->GetCost(a, c) - _eval->GetCost(b, d);
+                            if (diff > maxDiff) {
                                 aa = a;
                                 bb = b;
                                 a1 = c;
                                 b1 = d;
-                                max_diff = diff;
+                                maxDiff = diff;
                             }
                             diff = _eval->GetCost(a, b) + _eval->GetCost(d, c)
-                                   - _eval->GetCost(a, d) - _eval->GetCost(b, c);
-                            if (diff > max_diff) {
+                                 - _eval->GetCost(a, d) - _eval->GetCost(b, c);
+                            if (diff > maxDiff) {
                                 aa = a;
                                 bb = b;
                                 a1 = d;
                                 b1 = c;
-                                max_diff = diff;
+                                maxDiff = diff;
                             }
                         }
                     }
@@ -856,16 +843,15 @@ int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
             }
         }
 
-        /* This value must also be changed if nearMax is chenged above */
-        if (a1 == -1 && nearMax == NearMaxDef) {
-            nearMax = _eval->GetMaxNumNear();
+        if (a1 == -1 && numNear == _maxNumNear) {
+            numNear = _eval->GetMaxNumNear();
             goto RESTART;
-        } else if (a1 == -1 && nearMax == _eval->GetMaxNumNear()) {
+        } else if (a1 == -1 && numNear == _eval->GetMaxNumNear()) {
             int r = _eval->GetRand() % (numEleInCU - 1);
-            a = _listCenterUnit[r];
-            b = _listCenterUnit[r + 1];
+            int a = _routeOfCU[r];
+            int b = _routeOfCU[r + 1];
             for (int j = 0; j < _numCity; ++j) {
-                if (_centerUnit[j] == 0) {
+                if (_cityInCU[j] == 0) {
                     aa = a;
                     bb = b;
                     a1 = j;
@@ -873,50 +859,49 @@ int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
                     break;
                 }
             }
-            max_diff = _eval->GetCost(aa, bb) + _eval->GetCost(a1, b1)
-                       - _eval->GetCost(a, a1) - _eval->GetCost(b, b1);
+            maxDiff = _eval->GetCost(aa, bb) + _eval->GetCost(a1, b1)
+                    - _eval->GetCost(a, a1) - _eval->GetCost(b, b1);
         }
 
         EdgeTriple(a1, aa, bb, b1).Reconnect(pa);
         EdgeTriple(aa, a1, b1, bb).Reconnect(pa);
         _modiEdges.push_back(EdgeTriple(aa, bb, a1, b1));
-        gainModi += max_diff;
+        gain += maxDiff;
 
-        int posi_a1 = _posi[a1];
-        int select_un = -1;
+        int selectUnit = -1;
         for (int s = 0; s < _numSeg; ++s) {
-            if (_segment[s].begPosi <= posi_a1 && posi_a1 <= _segment[s].endPosi) {
-                select_un = _segment[s].subTourId;
+            if (_segment[s].begPosi <= _posi[a1] && _posi[a1] <= _segment[s].endPosi) {
+                selectUnit = _segment[s].unitId;
                 break;
             }
         }
-        if (select_un == -1) {
-            fprintf(stderr, "ERROR: invalid select_un\n");
+        if (selectUnit == -1) {
+            fprintf(stderr, "ERROR: invalid selectUnit\n");
             exit(1);
         }
 
         for (int s = 0; s < _numSeg; ++s) {
-            if (_segment[s].subTourId == select_un) {
-                _segment[s].subTourId = center_un;
+            if (_segment[s].unitId == selectUnit) {
+                _segment[s].unitId = cu;
             }
         }
-        _numElementInUnit[center_un] += _numElementInUnit[select_un];
+        _numEleInUnit[cu] += _numEleInUnit[selectUnit];
 
         for (int s = 0; s < _numSeg; ++s) {
-            if (_segment[s].subTourId == _numUnit - 1) {
-                _segment[s].subTourId = select_un;
+            if (_segment[s].unitId == _numUnit - 1) {
+                _segment[s].unitId = selectUnit;
             }
         }
-        _numElementInUnit[select_un] = _numElementInUnit[_numUnit - 1];
+        _numEleInUnit[selectUnit] = _numEleInUnit[_numUnit - 1];
         --_numUnit;
 
         for (int s = 0; s < numEleInCU; ++s) {
-            c = _listCenterUnit[s];
-            _centerUnit[c] = 0;
+            int c = _routeOfCU[s];
+            _cityInCU[c] = 0;
         }
     }
 
-    return gainModi;
+    return gain;
 }
 
 } /* namespace thu */
