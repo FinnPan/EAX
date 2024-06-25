@@ -23,6 +23,21 @@ private:
     /* A tour based on double-linked list. */
     class Tour {
     public:
+        /* Traverse tour in a special way. */
+        class Iterator {
+        public:
+            explicit Iterator (const Tour& pa, int st);
+            ~Iterator () = default;
+            void operator++ (int);
+            int GetStart () const { return _start; }
+            int GetCurr () const { return _curr; }
+            int GetNext () const { return _next; }
+            int GetCnt () const { return _cnt; }
+        private:
+            const Tour* _pa;
+            int _start, _curr, _next, _cnt;
+        };
+    public:
         Tour ();
         ~Tour ();
         Tour (const Tour&) = delete;
@@ -30,6 +45,7 @@ private:
         Tour (Tour&&) = delete;
         Tour& operator= (Tour&&) = delete;
         void Init (int n);
+        int GetNumCity () const { return _n; }
         int GetCost () const { return _cost; }
         void SetGain (int g) { _cost -= g; }
         int GetPrev (int i) const { return _link[i][0]; }
@@ -41,11 +57,11 @@ private:
         void FromFlipper (const Evaluator* e, const Flipper* f);
     private:
         int   _n;
-        int **_link;
         int   _cost;
+        int **_link;
     };
 
-    /* 3 edges: _b1--_r1, _r1--_r2, _r2--_b2. Maybe B+A+B or A+B+A. */
+    /* Three edges: _b1--_r1, _r1--_r2, _r2--_b2. Maybe B+A+B or A+B+A. */
     class EdgeTriple {
     public:
         explicit EdgeTriple (int b1 = -1, int r1 = -1, int r2 = -1, int b2 = -1) {
@@ -98,7 +114,7 @@ private:
         int* _cyc;
     };
 
-    /* Build all AB-cycles from pa and pb. */
+    /* Build all ABcycle from pa and pb. */
     class ABcyleMgr {
     public:
         explicit ABcyleMgr (const Evaluator *eval);
@@ -132,9 +148,6 @@ private:
         ~Cross ();
         void DoIt (Tour& pa, Tour& pb, int numKid);
     private:
-        void InitCityPosi (const Tour& pa) const;
-        void UndoApply (int idx, const std::vector<EdgeTriple>&, Tour& pa) const;
-        void DoApply (int idx, const std::vector<EdgeTriple>&, Tour& pa) const;
         void MakeSegment (int idx);
         void MakeUnit ();
         int MakeCompleteTour (Tour& pa);
@@ -146,6 +159,16 @@ private:
         ABcyleMgr* _abcMgr;
         std::vector<EdgeTriple> _modiEdges, _bestModiEdges;
 
+        /* Segment representation for tour parts of a sub-tour (unit) */
+        struct Segment {
+            Segment () = default;
+            explicit Segment (int bp) : begPosi(bp) {}
+            ~Segment () = default;
+            int begPosi, endPosi;
+            int unitId;
+        };
+        std::vector<Segment> _segments;
+
         /* link-posi and segment at a poistion */
         struct PosiInfo {
             int linkPosiB1, linkPosiB2;
@@ -153,17 +176,8 @@ private:
             int segId;
             void SetLinkPosiB1 (int b) { linkPosiB2 = linkPosiB1; linkPosiB1 = b; }
             void SetSegIdAndLinkPosiA (int i, int a) { segId = i; linkPosiA = a; }
-        };
+        } *_posiInfo;
 
-        /* Segment representation for tour parts of a sub-tour (unit) */
-        struct Segment {
-            int unitId;
-            int begPosi, endPosi;
-        };
-
-        int _numSeg;
-        Segment* _segment;
-        PosiInfo* _posiInfo;
         int _numUnit;
         int* _numEleInUnit;
         int* _cityInCU;

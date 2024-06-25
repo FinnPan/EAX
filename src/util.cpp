@@ -288,10 +288,7 @@ void Flipper::Init_1 (int count)
     }
     _parents[n++].size = remain;
 
-    if (n != _numSegments) {
-        fprintf (stderr, "ERROR: seg count (%d != %d) is wrong\n", n, _numSegments);
-        exit(1);
-    }
+    assert(n == _numSegments);
 }
 
 void Flipper::SetCycle (int count, const int *cyc)
@@ -460,7 +457,7 @@ void Flipper::Flip (int x, int y)
     Flip_0(xc, yc);
 }
 
-void Flipper::Flip_0 ( ChildNode *xc,  ChildNode *yc)
+void Flipper::Flip_0 (ChildNode *xc,  ChildNode *yc)
 {
     const bool segBackward = _reversed;
     const bool segForward = !segBackward;
@@ -676,6 +673,12 @@ bool Evaluator::Init (const char filename[])
     }
 
     const int n = GetNumCity();
+
+    if (n <= 2) {
+        fprintf(stderr, "ERROR: invalid city number (%d)\n", n);
+        exit(1);
+    }
+
     _randBuf = new int[n];
     for (int i = 0; i < n; ++i) {
         _randBuf[i] = i;
@@ -740,10 +743,7 @@ void Evaluator::BuildNeighborLists ()
             }
         }
         std::reverse(_nearTbl[ci], _nearTbl[ci] + maxNumNear);
-        if (cnt != maxNumNear) {
-            fprintf(stderr, "ERROR: invalid neighbor count (%d)\n", cnt);
-            exit(1);
-        }
+        assert(cnt == maxNumNear);
     }
     ru.Report("neighbor-lists");
 }

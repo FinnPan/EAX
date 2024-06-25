@@ -8,7 +8,7 @@ tsphurt focuses on robust and readable implementations of TSP heuristics:
 Contents of the directory tree are below.
 
 src/ is source codes. Some codes are adapted from:
-    GA-EAX by Yuichi Nagata (github.com/nagata-yuichi/GA-EAX),
+    GA-EAX by Yuichi Nagata (https://github.com/nagata-yuichi/GA-EAX),
     Concorde by Applegate, Bixby, Chvatal, and Cook (www.math.uwaterloo.ca/tsp/concorde/downloads).
 
 doc/ is papers, which are referenced to implement these TSP heuristics.

@@ -98,8 +98,29 @@ bool GA_EAX::ShouldTerminate ()
     return false;
 }
 
+GA_EAX::Tour::Iterator::Iterator (const Tour& pa, int st)
+{
+    _pa = &pa;
+    _start = st;
+    _curr = -1;
+    _next = st;
+    _cnt = -1;
+}
+
+void GA_EAX::Tour::Iterator::operator++ (int)
+{
+    int prev = _curr;
+    _curr = _next;
+    if (_pa->GetPrev(_curr) != prev) {
+        _next = _pa->GetPrev(_curr);
+    } else {
+        _next = _pa->GetNext(_curr);
+    }
+    ++_cnt;
+}
+
 GA_EAX::Tour::Tour ()
-    : _n(0), _link(nullptr), _cost(std::numeric_limits<int>::max())
+    : _n(0), _cost(std::numeric_limits<int>::max()), _link(nullptr)
 {}
 
 GA_EAX::Tour::~Tour ()
@@ -147,11 +168,6 @@ void GA_EAX::Tour::FromArray (const Evaluator* e, const int* route)
     for (int i = 1; i < n - 1; ++i) {
         _link[route[i]][0] = route[i - 1];
         _link[route[i]][1] = route[i + 1];
-    }
-
-    if (n <= 1) {
-        fprintf(stderr, "ERROR: invalid city number (%d)\n", n);
-        exit(1);
     }
 
     _link[route[0]][0] = route[n - 1];
@@ -457,10 +473,7 @@ bool GA_EAX::ABcyleMgr::Build_0 (const int stAppear, const int numKid, int& posi
             break;
         }
 
-        if (len >= abc->GetMaxLen()) {
-            fprintf(stderr, "ERROR: AB-cycle length reach max (%d)\n", abc->GetMaxLen());
-            exit(1);
-        }
+        assert(len < abc->GetMaxLen());
         abc->SetCity(len++, ci);
     }
 
@@ -515,10 +528,7 @@ int GA_EAX::ABcyleMgr::Apply (int idx, bool reverse, Tour& pa) const
 GA_EAX::Cross::Cross (const Evaluator* e)
     : _eval(e), _numCity(e->GetNumCity()), _maxNumNear(10)
 {
-    if (_maxNumNear > _eval->GetMaxNumNear()) {
-        fprintf(stderr, "ERROR: invalid _maxNumNear (%d)\n", _maxNumNear);
-        exit(1);
-    }
+    assert(_maxNumNear <= _eval->GetMaxNumNear());
 
     const int n = _numCity;
 
@@ -526,7 +536,6 @@ GA_EAX::Cross::Cross (const Evaluator* e)
     _posi = new int[n];
     _abcMgr = new ABcyleMgr(_eval);
 
-    _segment = new Segment[n];
     _posiInfo = new PosiInfo[n];
     _numEleInUnit = new int[n];
     _cityInCU = new int[n];
@@ -541,7 +550,6 @@ GA_EAX::Cross::~Cross ()
     delete[] _posi;
     delete _abcMgr;
 
-    delete[] _segment;
     delete[] _posiInfo;
     delete[] _numEleInUnit;
     delete[] _cityInCU;
@@ -550,13 +558,25 @@ GA_EAX::Cross::~Cross ()
 
 void GA_EAX::Cross::DoIt (Tour& pa, Tour& pb, int numKid)
 {
+    /* init _city and _posi */
+    Tour::Iterator iter(pa, 0);
+    do {
+        iter++;
+        if (iter.GetCnt() >= _numCity) {
+            break;
+        }
+        int posi = iter.GetCnt();
+        int city = iter.GetCurr();
+        _city[posi] = city;
+        _posi[city] = posi;
+    } while (1);
+
     _abcMgr->Build(pa, pb, numKid);
 
-    InitCityPosi(pa);
-
+    /* main loop to generate kids */
     const int numAbc = std::min(numKid, _abcMgr->GetNumCycle());
     int bestIdx = -1, bestGain = 0;
-
+    int aa, bb, a1, b1;
     for (int idx = 0; idx < numAbc; ++idx) {
         int gain = _abcMgr->Apply(idx, false /*reverse*/, pa);
 
@@ -571,72 +591,41 @@ void GA_EAX::Cross::DoIt (Tour& pa, Tour& pb, int numKid)
             bestGain = gain;
         }
 
-        UndoApply(idx, _modiEdges, pa);
+        /* back to pa */
+        for (auto it = _modiEdges.rbegin(); it != _modiEdges.rend(); ++it) {
+            it->Get(aa, a1, bb, b1);
+            EdgeTriple(a1, aa, bb, b1).Reconnect(pa);
+            EdgeTriple(bb, b1, a1, aa).Reconnect(pa);
+        }
+        _abcMgr->Apply(idx, true /*reverse*/, pa);
         pa.SetGain(-gain);
     }
 
     if (bestIdx != -1) {
-        DoApply(bestIdx, _bestModiEdges, pa);
-        pa.SetGain(bestGain);
-    }
-}
-
-void GA_EAX::Cross::InitCityPosi (const Tour& pa) const
-{
-    int prev, curr = -1, next = 0;
-    for (int i = 0; i < _numCity; ++i) {
-        prev = curr;
-        curr = next;
-        if (pa.GetPrev(curr) != prev) {
-            next = pa.GetPrev(curr);
-        } else {
-            next = pa.GetNext(curr);
+        /* go to best */
+        _abcMgr->Apply(bestIdx, false /*reverse*/, pa);
+        for (auto it = _bestModiEdges.begin(); it != _bestModiEdges.end(); ++it) {
+            it->Get(aa, bb, a1, b1);
+            EdgeTriple(a1, aa, bb, b1).Reconnect(pa);
+            EdgeTriple(aa, a1, b1, bb).Reconnect(pa);
         }
-        _city[i] = curr;
-        _posi[curr] = i;
-    }
-}
-
-void GA_EAX::Cross::UndoApply (int idx, const std::vector<EdgeTriple>& mts, Tour& pa) const
-{
-    int aa, a1, bb, b1;
-    for (auto it = mts.rbegin(); it != mts.rend(); ++it) {
-        it->Get(aa, a1, bb, b1);
-        EdgeTriple(a1, aa, bb, b1).Reconnect(pa);
-        EdgeTriple(bb, b1, a1, aa).Reconnect(pa);
-    }
-    _abcMgr->Apply(idx, true /*reverse*/, pa);
-}
-
-void GA_EAX::Cross::DoApply (int idx, const std::vector<EdgeTriple>& mts, Tour& pa) const
-{
-    int aa, bb, a1, b1;
-    _abcMgr->Apply(idx, false /*reverse*/, pa);
-    for (auto it = mts.begin(); it != mts.end(); ++it) {
-        it->Get(aa, bb, a1, b1);
-        EdgeTriple(a1, aa, bb, b1).Reconnect(pa);
-        EdgeTriple(aa, a1, b1, bb).Reconnect(pa);
+        pa.SetGain(bestGain);
     }
 }
 
 void GA_EAX::Cross::MakeSegment (int idx)
 {
-    _numSeg = 0;
+    _segments.clear();
 
     const ABcycle* abc = _abcMgr->GetCycle(idx);
     const int n = _numCity;
     ABcycle::Iterator iter;
     EdgeTriple et;
     int b1, r1, r2, b2;
-    int p1, p2, p0;
+    int p1, p2, p0{0};
     bool hasZeroPosi = false;
 
     for (iter.Begin(abc, false /* reverse */); iter.End(et); iter++) {
-        if (_numSeg >= n) {
-            fprintf(stderr, "ERROR: #segments reach max (%d)\n", n);
-            exit(1);
-        }
-
         et.Get(b1, r1, r2, b2);
         p1 = _posi[r1];
         p2 = _posi[r2];
@@ -650,11 +639,10 @@ void GA_EAX::Cross::MakeSegment (int idx)
         } else if (p2 < p1) {
             p0 = p1;
         } else {
-            fprintf(stderr, "ERROR: invalid else branch when init segments\n");
-            exit(1);
+            assert(0);
         }
 
-        _segment[_numSeg++].begPosi = p0;
+        _segments.push_back(Segment(p0));
         _posiInfo[p1].SetLinkPosiB1(_posi[b1]);
         _posiInfo[p2].SetLinkPosiB1(_posi[b2]);
 
@@ -664,44 +652,48 @@ void GA_EAX::Cross::MakeSegment (int idx)
     }
 
     if (!hasZeroPosi) {
-        if (_numSeg >= n) {
-            fprintf(stderr, "ERROR: #segments reach max (%d)\n", n);
-            exit(1);
-        }
-        _segment[_numSeg++].begPosi = 0;
+        _segments.push_back(Segment(0));
         _posiInfo[n-1].SetLinkPosiB1(0);
         _posiInfo[0].SetLinkPosiB1(n - 1);
     }
 
-    std::sort(_segment, _segment + _numSeg,
+    const int numSeg = _segments.size();
+    if (numSeg > n) {
+        fprintf(stderr, "ERROR: #segments reach maximum (%d)\n", numSeg);
+        exit(1);
+    }
+
+    std::sort(_segments.begin(), _segments.end(),
         [](const Segment& l, const Segment& r) {
             return l.begPosi < r.begPosi;
         }
     );
-    for (int s = 0; s < _numSeg - 1; ++s) {
-        _segment[s].endPosi = _segment[s + 1].begPosi - 1;
+    for (int s = 0; s < numSeg - 1; ++s) {
+        _segments[s].endPosi = _segments[s + 1].begPosi - 1;
     }
-    _segment[_numSeg - 1].endPosi = n - 1;
+    _segments[numSeg - 1].endPosi = n - 1;
 }
 
 void GA_EAX::Cross::MakeUnit ()
 {
     _numUnit = 0;
 
-    for (int s = 0; s < _numSeg; ++s) {
-        _segment[s].unitId = -1;
-        int p1 = _segment[s].begPosi;
-        int p2 = _segment[s].endPosi;
-        _posiInfo[p1].SetSegIdAndLinkPosiA(s, p2);
-        _posiInfo[p2].SetSegIdAndLinkPosiA(s, p1);
+    int numSeg = 0;
+    for (auto& seg : _segments) {
+        seg.unitId = -1;
+        int p1 = seg.begPosi;
+        int p2 = seg.endPosi;
+        _posiInfo[p1].SetSegIdAndLinkPosiA(numSeg, p2);
+        _posiInfo[p2].SetSegIdAndLinkPosiA(numSeg, p1);
+        numSeg++;
     }
 
     int p_st, p1, p2, p_pre, p_next;
     while (1) {
         bool foundUninit = false;
-        for (int s = 0; s < _numSeg; ++s) {
-            if (_segment[s].unitId == -1) {
-                p_st = _segment[s].begPosi;
+        for (const auto& seg : _segments) {
+            if (seg.unitId == -1) {
+                p_st = seg.begPosi;
                 p1 = p_st;
                 p_pre = -1;
                 foundUninit = true;
@@ -714,7 +706,7 @@ void GA_EAX::Cross::MakeUnit ()
 
         while (1) {
             int segId = _posiInfo[p1].segId;
-            _segment[segId].unitId = _numUnit;
+            _segments[segId].unitId = _numUnit;
 
             p2 = _posiInfo[p1].linkPosiA;
             p_next = _posiInfo[p2].linkPosiB1;
@@ -735,23 +727,23 @@ void GA_EAX::Cross::MakeUnit ()
     }
 
     int unitId = -1, segId = -1;
-    for (int s = 0; s < _numSeg; ++s) {
-        if (_segment[s].unitId != unitId) {
+    for (auto& seg : _segments) {
+        if (seg.unitId != unitId) {
             ++segId;
-            _segment[segId] = _segment[s];
-            unitId = _segment[s].unitId;
+            _segments[segId] = seg;
+            unitId = seg.unitId;
         } else {
-            _segment[segId].endPosi = _segment[s].endPosi;
+            _segments[segId].endPosi = seg.endPosi;
         }
     }
-    _numSeg = segId + 1;
+    _segments.resize(segId + 1);
 
     for (int s = 0; s < _numUnit; ++s) {
         _numEleInUnit[s] = 0;
     }
-    for (int s = 0; s < _numSeg; ++s) {
-        unitId = _segment[s].unitId;
-        _numEleInUnit[unitId] += _segment[s].endPosi - _segment[s].begPosi + 1;
+    for (const auto& seg : _segments) {
+        unitId = seg.unitId;
+        _numEleInUnit[unitId] += seg.endPosi - seg.begPosi + 1;
     }
 }
 
@@ -772,38 +764,26 @@ int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
         }
 
         int st = -1;
-        for (int s = 0; s < _numSeg; ++s) {
-            if (_segment[s].unitId == cu) {
-                int posi = _segment[s].begPosi;
+        for (const auto& seg : _segments) {
+            if (seg.unitId == cu) {
+                int posi = seg.begPosi;
                 st = _city[posi];
             }
         }
-        if (st == -1) {
-            fprintf(stderr, "ERROR: invalid st\n");
-            exit(1);
-        }
+        assert(st != -1);
 
         int numEleInCU = 0;
-        int curr = -1, next = st;
-        while (1) {
-            int prev = curr;
-            curr = next;
+        Tour::Iterator iter(pa, st);
+        do {
+            iter++;
+            int curr = iter.GetCurr();
             _cityInCU[curr] = 1;
             _routeOfCU[numEleInCU++] = curr;
-            if (pa.GetPrev(curr) != prev) {
-                next = pa.GetPrev(curr);
-            } else {
-                next = pa.GetNext(curr);
-            }
-            if (next == st) {
+            if (iter.GetNext() == iter.GetStart()) {
                 break;
             }
-        }
-
-        if (numEleInCU != _numEleInUnit[cu]) {
-            fprintf(stderr, "ERROR: invalid numEleInCU (%d)\n", numEleInCU);
-            exit(1);
-        }
+        } while(1);
+        assert(numEleInCU == _numEleInUnit[cu]);
 
         int numNear = _maxNumNear;
         int aa = -1, bb = -1, a1 = -1, b1 = -1;
@@ -869,27 +849,24 @@ int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
         gain += maxDiff;
 
         int selectUnit = -1;
-        for (int s = 0; s < _numSeg; ++s) {
-            if (_segment[s].begPosi <= _posi[a1] && _posi[a1] <= _segment[s].endPosi) {
-                selectUnit = _segment[s].unitId;
+        for (const auto& seg : _segments) {
+            if (seg.begPosi <= _posi[a1] && _posi[a1] <= seg.endPosi) {
+                selectUnit = seg.unitId;
                 break;
             }
         }
-        if (selectUnit == -1) {
-            fprintf(stderr, "ERROR: invalid selectUnit\n");
-            exit(1);
-        }
+        assert(selectUnit != -1);
 
-        for (int s = 0; s < _numSeg; ++s) {
-            if (_segment[s].unitId == selectUnit) {
-                _segment[s].unitId = cu;
+        for (auto& seg : _segments) {
+            if (seg.unitId == selectUnit) {
+                seg.unitId = cu;
             }
         }
         _numEleInUnit[cu] += _numEleInUnit[selectUnit];
 
-        for (int s = 0; s < _numSeg; ++s) {
-            if (_segment[s].unitId == _numUnit - 1) {
-                _segment[s].unitId = selectUnit;
+        for (auto& seg : _segments) {
+            if (seg.unitId == _numUnit - 1) {
+                seg.unitId = selectUnit;
             }
         }
         _numEleInUnit[selectUnit] = _numEleInUnit[_numUnit - 1];

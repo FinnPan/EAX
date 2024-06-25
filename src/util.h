@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cmath>
 #include <cstring>
+#include <cassert>
 #include <climits>
 #include <random>
 #include <chrono>
@@ -91,7 +92,7 @@ public:
 private:
     void Init_0 ();
     void Init_1 (int count);
-    void Flip_0 ( ChildNode *xc,  ChildNode *yc);
+    void Flip_0 (ChildNode *xc,  ChildNode *yc);
     void Reverse () { _reversed ^= 1; }
     bool IsBackward (ParentNode* p) const { return (_reversed^(p->rev)); }
     bool IsForward (ParentNode* p) const { return !IsBackward(p); }
