@@ -9,7 +9,7 @@ namespace thu { /* tsp heuristics */
  * Some codes are adapted from GA-EAX. */
 class GA_EAX {
 public:
-    GA_EAX (const Evaluator* eval, int numPop = 100, int numKid = 30);
+    GA_EAX (const Evaluator *eval, int numPop = 100, int numKid = 30);
     ~GA_EAX ();
     void DoIt ();
     void SetVerbose (bool s) { _verbose = s; }
@@ -34,7 +34,7 @@ private:
             int GetNext () const { return _next; }
             int GetCnt () const { return _cnt; }
         private:
-            const Tour* _pa;
+            const Tour *_pa;
             int _start, _curr, _next, _cnt;
         };
     public:
@@ -45,20 +45,19 @@ private:
         Tour (Tour&&) = delete;
         Tour& operator= (Tour&&) = delete;
         void Init (int n);
-        int GetNumCity () const { return _n; }
         int GetCost () const { return _cost; }
         void SetGain (int g) { _cost -= g; }
         int GetPrev (int i) const { return _link[i][0]; }
         int GetNext (int i) const { return _link[i][1]; }
         void SetPrev (int i, int c) { _link[i][0] = c; }
         void SetNext (int i, int c) { _link[i][1] = c; }
-        void ComputeCost (const Evaluator* e);
-        void FromArray (const Evaluator* e, const int* route);
-        void FromFlipper (const Evaluator* e, const Flipper* f);
+        void ComputeCost (const Evaluator *e);
+        void FromArray (const Evaluator *e, const int *arr);
+        void FromFlipper (const Evaluator *e, const Flipper *f);
     private:
         int   _n;
         int   _cost;
-        int **_link;
+        int* *_link;
     };
 
     /* Three edges: _b1--_r1, _r1--_r2, _r2--_b2. Maybe B+A+B or A+B+A. */
@@ -88,55 +87,82 @@ private:
         public:
             Iterator () = default;
             ~Iterator () = default;
-            void Begin (const ABcycle* abc, bool reverse);
+            void Begin (const ABcycle *abc, bool reverse);
             bool End (EdgeTriple& et) const;
             void operator++ (int) { ++_i; }
         private:
-            const ABcycle* _abc;
+            const ABcycle *_abc;
             int _len, _i, _start, _step, _offset[4];
         };
 
         explicit ABcycle (int n);
         ~ABcycle () { delete _cyc; }
-        int GetMaxLen () const { return _maxLen; }
-        int GetLen () const { return _len; }
-        void SetLen (int l) { _len = l; }
-        int GetCity (int i) const { return _cyc[i]; }
+        int GetCapacity () const { return _capacity; }
+        int GetLength () const { return _length; }
+        void SetLength (int l) { _length = l; }
+        int GetOffset () const { return _offset; }
+        void SetOffset (int o) { _offset = o; }
+        int GetCity (int i) const { return _cyc[(i+_offset)%_length]; }
         void SetCity (int i, int v) { _cyc[i] = v; }
         int GetGain () const { return _gain; }
         void SetGain (int g) { _gain = g; }
+        int Apply (bool reverse, Tour& pa) const;
     private:
-        const int _maxLen;
-        int _len;
+        const int _capacity;
+        int _length, _offset;
         /* gain when replacing A edges with B edges */
         int _gain;
         /* (2*i)--(2*i+1) are A edges, (2*i+1)--(2*i+2) are B edges. */
-        int* _cyc;
+        int *_cyc;
     };
 
     /* Build all ABcycle from pa and pb. */
-    class ABcyleMgr {
+    class ABcycleMgr {
     public:
-        explicit ABcyleMgr (const Evaluator *eval);
-        ~ABcyleMgr ();
+        explicit ABcycleMgr (const Evaluator *eval);
+        ~ABcycleMgr ();
         void Build (const Tour& pa, const Tour& pb, int numKid);
-        const ABcycle* GetCycle (int idx) const { return _ABcycleList[idx]; }
-        int GetNumCycle () const { return _numABcycle; }
-        int Apply (int idx, bool reverse, Tour& pa) const;
+        const ABcycle *GetCycle (int idx) const { return _ABcycleList[idx]; }
+        int GetCycleNum () const { return _numABcycle; }
     private:
         bool Build_0 (const int stAppear, const int numKid, int& posiCurr);
     private:
         const Evaluator *_eval;
         const int _numCity;
         const int _maxNumABcycle;
-        ABcycle** _ABcycleList;
+        ABcycle* *_ABcycleList;
         int _numABcycle;
-        int** _overlapEdges;
-        int *_cycBuf1, *_cycBuf1Inv;
-        int *_cycBuf2, *_cycBuf2Inv;
-        int _cycBuf1Num, _cycBuf2Num;
-        int* _cycRoute;
-        int* _checkCycBuf1;
+        int *_cycRank2City, *_cycRank2Posi;
+        int *_cycRank1City, *_cycRank1Posi;
+        int _numCycRank2, _numCycRank1;
+        int *_cycCity, *_cycPosi;
+
+        enum EdgeType {
+            ET_First = 0,
+            ET_Second = 1,
+            ET_Rand = 2,
+        };
+
+        /* Four edges of a city after combining pa and pb. */
+        class QuadEdge {
+        public:
+            QuadEdge () = default;
+            ~QuadEdge () = default;
+            void Init (int a0, int a1, int b0, int b1);
+            int GetRemain () const { return _remain; }
+            void DecrRemain () { _remain--; }
+            int GetEdge (int idx, EdgeType et) const { return _edge[Index(idx, et)]; }
+            void SwapEdge (int idx) {
+                std::swap(_edge[Index(idx, ET_First)], _edge[Index(idx, ET_Second)]);
+            }
+        private:
+            static int Index (int idx, EdgeType et) { return (1 - idx % 2 + et * 2); }
+        private:
+            int _edge[4];
+            int _remain;
+        };
+
+        QuadEdge *_quadEdge;
     };
 
     /* Edge Assembly Crossover.
@@ -144,7 +170,7 @@ private:
      * are removed, even if they help achieve the optimal solution. */
     class Cross {
     public:
-        explicit Cross (const Evaluator* e);
+        explicit Cross (const Evaluator *e);
         ~Cross ();
         void DoIt (Tour& pa, Tour& pb, int numKid);
     private:
@@ -156,7 +182,7 @@ private:
         const int _numCity;
         const int _maxNumNear;
         int *_city, *_posi;
-        ABcyleMgr* _abcMgr;
+        ABcycleMgr *_abcMgr;
         std::vector<EdgeTriple> _modiEdges, _bestModiEdges;
 
         /* Segment representation for tour parts of a sub-tour (unit) */
@@ -179,9 +205,9 @@ private:
         } *_posiInfo;
 
         int _numUnit;
-        int* _numEleInUnit;
-        int* _cityInCU;
-        int* _routeOfCU;
+        int *_numEleInUnit;
+        int *_cuFlag;
+        int *_cuCity;
     };
 
 private:

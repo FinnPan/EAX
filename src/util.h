@@ -22,7 +22,7 @@ public:
     RUsage ();
     ~RUsage ();
     void Reset ();
-    void Report (const char* tag) const;
+    void Report (const char *tag) const;
 private:
     static TimePoint GetTimeOfDay () { return Clock::now(); }
     static double GetTimeOfCPU ();
@@ -94,8 +94,8 @@ private:
     void Init_1 (int count);
     void Flip_0 (ChildNode *xc,  ChildNode *yc);
     void Reverse () { _reversed ^= 1; }
-    bool IsBackward (ParentNode* p) const { return (_reversed^(p->rev)); }
-    bool IsForward (ParentNode* p) const { return !IsBackward(p); }
+    bool IsBackward (ParentNode *p) const { return (_reversed^(p->rev)); }
+    bool IsForward (ParentNode *p) const { return !IsBackward(p); }
     bool SameSegment (ChildNode *a, ChildNode *b) const;
     void SameSegmentFlip (ChildNode *a, ChildNode *b) const;
     void ConsecutiveSegmentFlip (ParentNode *a, ParentNode *b) const;
@@ -118,17 +118,17 @@ public:
     using RandType = RandEngine::result_type;
     Evaluator ();
     ~Evaluator ();
-    bool Init (const char* filename);
-    int ComputeCost (const int* route) const;
-    int ComputeCost (const Flipper* f) const;
-    const int* MakeRand () const;
+    bool Init (const char *filename);
+    int ComputeCost (const int *arr) const;
+    int ComputeCost (const Flipper *f) const;
+    const int *MakeRand () const;
     RandEngine& GetRandEngine () const { return *_randEng; }
     RandType GetRand () const { return GetRandEngine()(); }
     int GetMaxNumNear () const { return _maxNumNear; }
     /* return jth-nearest neighbor of i
      * j is valid from 0 to GetMaxNumNear()-1. */
     int GetNear (int i, int j) const { return _nearTbl[i][j]; }
-    const TspLib* GetTspLib () const { return &_tspLib; }
+    const TspLib *GetTspLib () const { return &_tspLib; }
     int GetNumCity () const { return _tspLib.GetDimension(); }
     int GetCost (int i, int j) const { return _tspLib.EdgeLen(i, j); }
     double ComputeGap (int cost) const;
@@ -138,7 +138,7 @@ private:
     const int   _maxNumNear;
     RandEngine *_randEng;
     int        *_randBuf;
-    int       **_nearTbl;
+    int*       *_nearTbl;
     TspLib      _tspLib;
 };
 

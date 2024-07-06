@@ -24,7 +24,7 @@ void RUsage::Reset ()
     _cpuTime0 = GetTimeOfCPU();
 }
 
-void RUsage::Report (const char* tag) const
+void RUsage::Report (const char *tag) const
 {
     std::chrono::duration<double> elapsedTime = GetTimeOfDay() - _dayTime0;
     double cpuTime = GetTimeOfCPU() - _cpuTime0;
@@ -41,7 +41,7 @@ double RUsage::GetTimeOfCPU ()
     double cpu = 0.0;
 
 #ifdef WIN32
-    auto ConvertTimeFormat = [](const FILETIME* fTime) {
+    auto ConvertTimeFormat = [](const FILETIME *fTime) {
         SYSTEMTIME sTime;
         FileTimeToSystemTime(fTime, &sTime);
         double t = sTime.wHour * 3600.0 + sTime.wMinute * 60.0 +
@@ -76,7 +76,7 @@ void RUsage::GetProcessMem (double& physMem, double& virtMem)
         virtMem = pmc.PagefileUsage / 1024.0 / 1024.0;
     }
 #else
-    FILE* fd = fopen("/proc/self/status", "r");
+    FILE *fd = fopen("/proc/self/status", "r");
     if (fd) {
         char line[256];
         char key[128];
@@ -704,7 +704,7 @@ void Evaluator::BuildNeighborLists ()
 
     class LessCmp {
     public:
-        explicit LessCmp (const Evaluator* eval, int ci) :
+        explicit LessCmp (const Evaluator *eval, int ci) :
             _eval(eval), _ci(ci) {}
         ~LessCmp () = default;
         bool operator() (const int l, const int r) const {
@@ -713,7 +713,7 @@ void Evaluator::BuildNeighborLists ()
             return costL < costR;
         }
     private:
-        const Evaluator* _eval;
+        const Evaluator *_eval;
         int _ci;
     };
 
@@ -748,17 +748,17 @@ void Evaluator::BuildNeighborLists ()
     ru.Report("neighbor-lists");
 }
 
-int Evaluator::ComputeCost (const int* route) const
+int Evaluator::ComputeCost (const int *arr) const
 {
     const int n = GetNumCity();
     int cost = 0;
     for (int i = 0; i < n; i++) {
-        cost += GetCost(route[i], route[(i+1)%n]);
+        cost += GetCost(arr[i], arr[(i+1)%n]);
     }
     return cost;
 }
 
-int Evaluator::ComputeCost (const Flipper* f) const
+int Evaluator::ComputeCost (const Flipper *f) const
 {
     int cost = 0;
     int c1 = 0;
@@ -770,7 +770,7 @@ int Evaluator::ComputeCost (const Flipper* f) const
     return cost;
 }
 
-const int* Evaluator::MakeRand () const
+const int *Evaluator::MakeRand () const
 {
     const int n = GetNumCity();
     std::shuffle(_randBuf, _randBuf + n, GetRandEngine());
@@ -790,8 +790,8 @@ double Evaluator::ComputeGap (int cost) const
 void TwoOpt::DoIt ()
 {
     const int n = _eval->GetNumCity();
-    const int* route = _eval->MakeRand();
-    _flipper.SetCycle(n, route);
+    const int *arr = _eval->MakeRand();
+    _flipper.SetCycle(n, arr);
     TwoExchange();
 }
 
@@ -802,7 +802,7 @@ void TwoOpt::TwoExchange ()
     int t1, t2, t3, t4, cost12, cost34, cost23, cost14;
     bool improved;
 
-    /*******************************
+    /*
      * from:
      *   t1 -> t2
      *    |     |
@@ -813,7 +813,7 @@ void TwoOpt::TwoExchange ()
      *    | \ / |          |     |
      *    | / \ |    or:   |     |
      *   t3    t4         t3 <- t2
-     *******************************/
+     */
 
     do {
         improved = false;

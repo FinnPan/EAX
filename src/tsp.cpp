@@ -3,7 +3,7 @@
 #include "clk.h"
 
 static const char *g_progname;
-static thu::Evaluator* g_eval;
+static thu::Evaluator *g_eval;
 static int g_maxIter;
 static int g_bestCost;
 static double g_avgCost;
@@ -14,13 +14,13 @@ enum HeuristicKey {
     HK_clk,
     HK_NUM
 };
-static const char* HeuristicKey2Str (int k);
-static int HeuristicStr2Key (const char* str);
+static const char *HeuristicKey2Str (int k);
+static int HeuristicStr2Key (const char *str);
 
 static void Usage ();
-static bool Proc2OPT (int argc, char **argv);
-static bool ProcEAX (int argc, char **argv);
-static bool ProcCLK (int argc, char **argv);
+static bool Proc2OPT (int argc, char* argv[]);
+static bool ProcEAX (int argc, char* argv[]);
+static bool ProcCLK (int argc, char* argv[]);
 static bool Run2OPT (int times);
 static bool RunEAX (bool verbose);
 static bool RunCLK (int times, bool verbose);
@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-const char* HeuristicKey2Str (int k)
+const char *HeuristicKey2Str (int k)
 {
     switch (k) {
         case HK_2opt:
@@ -85,7 +85,7 @@ const char* HeuristicKey2Str (int k)
     };
 }
 
-int HeuristicStr2Key (const char* str)
+int HeuristicStr2Key (const char *str)
 {
     int hk = -1;
     for (int i = 0; i < HK_NUM; ++i) {
@@ -107,7 +107,7 @@ void Usage ()
     fprintf(stderr, "  %s clk   instance_file [-times t] [-verbose]\n", g_progname);
 }
 
-bool Proc2OPT (int argc, char **argv)
+bool Proc2OPT (int argc, char* argv[])
 {
     int times = 20;
     for (int i = 3; i < argc; i++){
@@ -130,7 +130,7 @@ bool Proc2OPT (int argc, char **argv)
     return Run2OPT(times);
 }
 
-bool ProcEAX (int argc, char **argv)
+bool ProcEAX (int argc, char* argv[])
 {
     bool verbose = false;
     for (int i = 3; i < argc; i++){
@@ -145,7 +145,7 @@ bool ProcEAX (int argc, char **argv)
     return RunEAX(verbose);
 }
 
-bool ProcCLK (int argc, char **argv)
+bool ProcCLK (int argc, char* argv[])
 {
     int times = 1;
     bool verbose = false;
@@ -234,7 +234,7 @@ bool RunCLK (int times, bool verbose)
     assert(listIdx == 2*edgeNum);
 
     srand((unsigned int)time(0));
-    auto* dat = const_cast<thu::TspLib*>(g_eval->GetTspLib());
+    auto *dat = const_cast<thu::TspLib*>(g_eval->GetTspLib());
     int in_repeater = num;
     double totalCost = 0;
     g_maxIter = times;
