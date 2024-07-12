@@ -189,10 +189,12 @@ static std::vector<edgelook>
        int t3, int t6);
 
 
-int CClinkern_tour (int ncount, TspLib *dat, int ecount,
+static int CClinkern_tour (int ncount, TspLib *dat, int ecount,
         int *elist, int stallcount, int repeatcount, int *incycle,
         int *outcycle, double *val, int silent)
 {
+    srand((unsigned int)time(0));
+
     int rval = 0;
     int i;
     int *tcyc = (int *) NULL;
@@ -493,7 +495,7 @@ static int step (graph *G, TspLib *D, adddel *E, aqueue *Q, Flipper *F,
     }
 
     auto list = look_ahead (G, D, E, F, first, last, gain, level);
-    for (const auto& e : list) {
+    for (const auto &e : list) {
         {
             curr = e.other;
             newlast = e.over;
@@ -700,7 +702,7 @@ static int weird_second_step (graph *G, TspLib *D, adddel *E, aqueue *Q,
     (void)t3prev;
 
     auto list = weird_look_ahead (G, D, F, len_t1_t2, t1, t2);
-    for (const auto& h : list) {
+    for (const auto &h : list) {
         t3 = h.other;
         t4 = h.over;
 
@@ -718,7 +720,7 @@ static int weird_second_step (graph *G, TspLib *D, adddel *E, aqueue *Q,
         G->weirdmark[t4next] = G->weirdmagic;
 
         auto list2 = weird_look_ahead2 (G, D, F, oldG, t2, t3, t4);
-        for (const auto& e : list2) {
+        for (const auto &e : list2) {
             t5 = e.other;
             t6 = e.over;
 
@@ -787,7 +789,7 @@ static int weird_second_step (graph *G, TspLib *D, adddel *E, aqueue *Q,
                 tG = oldG - e.diff;
                 markedge_del (t5, t6, E);
                 auto list3 = weird_look_ahead3 (G, D, F, tG, t2, t3, t6);
-                for (const auto& f : list3) {
+                for (const auto &f : list3) {
                     t7 = f.other;
                     t8 = f.over;
                     gain = tG - f.diff;
@@ -1605,6 +1607,56 @@ static void rand_cycle (int ncount, int *cyc)
         k = rand() % i;
         std::swap(cyc[i - 1], cyc[k]);
     }
+}
+
+ChainedLK::ChainedLK (const Evaluator *e) :
+    _eval(e), _edgeList(nullptr), _edgeNum(0),
+    _verbose(false)
+{
+    InitEdgeList();
+}
+
+ChainedLK::~ChainedLK ()
+{
+    if (_edgeList) {
+        delete[] _edgeList;
+        _edgeList = nullptr;
+        _edgeNum = 0;
+    }
+}
+
+void ChainedLK::InitEdgeList ()
+{
+    const int n = _eval->GetNumCity();
+    const int maxNear = _eval->GetMaxNumNear();
+    const int maxNum = maxNear * n * 2;
+
+    _edgeList = new int[maxNum];
+    _edgeNum = 0;
+
+    for (int ci = 0; ci < n; ++ci) {
+        int cnt = 0;
+        for (int ni = 0; ni < maxNear; ++ni) {
+            int cj = _eval->GetNear(ci, ni);
+            if (cj > ci) {
+                int idx = 2 * _edgeNum + 2 * cnt;
+                _edgeList[idx] = ci;
+                _edgeList[idx + 1] = cj;
+                cnt++;
+            }
+        }
+        _edgeNum += cnt;
+    }
+}
+
+bool ChainedLK::DoIt (double &cost)
+{
+    const int n = _eval->GetNumCity();
+    auto *dat = const_cast<thu::TspLib*>(_eval->GetTspLib());
+
+    int ret = CClinkern_tour(n, dat, _edgeNum, _edgeList, 100000000,
+                n, nullptr, nullptr, &cost, !_verbose);
+    return (ret == 0);
 }
 
 } /* namespace thu */

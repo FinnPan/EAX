@@ -26,7 +26,7 @@ private:
         /* Traverse tour in a special way. */
         class Iterator {
         public:
-            explicit Iterator (const Tour& pa, int st);
+            explicit Iterator (const Tour &pa, int st);
             ~Iterator () = default;
             void operator++ (int);
             int GetStart () const { return _start; }
@@ -40,10 +40,10 @@ private:
     public:
         Tour ();
         ~Tour ();
-        Tour (const Tour&) = delete;
-        Tour& operator= (const Tour&);
-        Tour (Tour&&) = delete;
-        Tour& operator= (Tour&&) = delete;
+        Tour (const Tour &) = delete;
+        Tour &operator= (const Tour &);
+        Tour (Tour &&) = delete;
+        Tour &operator= (Tour &&) = delete;
         void Init (int n);
         int GetCost () const { return _cost; }
         void SetGain (int g) { _cost -= g; }
@@ -55,7 +55,7 @@ private:
         void FromArray (const Evaluator *e, const int *arr);
         void FromFlipper (const Evaluator *e, const Flipper *f);
     private:
-        int   _n;
+        int   _numCity;
         int   _cost;
         int* *_link;
     };
@@ -67,14 +67,14 @@ private:
             Set(b1, r1, r2, b2);
         }
         ~EdgeTriple () = default;
-        void Get (int& b1, int& r1, int& r2, int& b2) const {
+        void Get (int &b1, int &r1, int &r2, int &b2) const {
             b1 = _b1; r1 = _r1; r2 = _r2; b2 = _b2;
         }
         void Set (int b1, int r1, int r2, int b2) {
             _b1 = b1; _r1 = r1; _r2 = r2; _b2 = b2;
         }
         /* _r1--_r2 will be broken, _b1--_r1 and _r2--_b2 will be connected. */
-        void Reconnect (Tour& pa) const;
+        void Reconnect (Tour &pa) const;
     private:
         int _b1, _r1, _r2, _b2;
     };
@@ -88,7 +88,7 @@ private:
             Iterator () = default;
             ~Iterator () = default;
             void Begin (const ABcycle *abc, bool reverse);
-            bool End (EdgeTriple& et) const;
+            bool End (EdgeTriple &et) const;
             void operator++ (int) { ++_i; }
         private:
             const ABcycle *_abc;
@@ -106,7 +106,7 @@ private:
         void SetCity (int i, int v) { _cyc[i] = v; }
         int GetGain () const { return _gain; }
         void SetGain (int g) { _gain = g; }
-        int Apply (bool reverse, Tour& pa) const;
+        int Apply (bool reverse, Tour &pa) const;
     private:
         const int _capacity;
         int _length, _offset;
@@ -121,14 +121,13 @@ private:
     public:
         explicit ABcycleMgr (const Evaluator *eval);
         ~ABcycleMgr ();
-        void Build (const Tour& pa, const Tour& pb, int numKid);
+        void Build (const Tour &pa, const Tour &pb, int numKid);
         const ABcycle *GetCycle (int idx) const { return _ABcycleList[idx]; }
         int GetCycleNum () const { return _numABcycle; }
     private:
-        bool Build_0 (const int stAppear, const int numKid, int& posiCurr);
+        bool Build_0 (const int stAppear, const int numKid, int &posiCurr);
     private:
         const Evaluator *_eval;
-        const int _numCity;
         const int _maxNumABcycle;
         ABcycle* *_ABcycleList;
         int _numABcycle;
@@ -172,14 +171,13 @@ private:
     public:
         explicit Cross (const Evaluator *e);
         ~Cross ();
-        void DoIt (Tour& pa, Tour& pb, int numKid);
+        void DoIt (Tour &pa, Tour &pb, int numKid);
     private:
         void MakeSegment (int idx);
         void MakeUnit ();
-        int MakeCompleteTour (Tour& pa);
+        int MakeCompleteTour (Tour &pa);
     private:
         const Evaluator *_eval;
-        const int _numCity;
         const int _maxNumNear;
         int *_city, *_posi;
         ABcycleMgr *_abcMgr;
@@ -213,7 +211,7 @@ private:
 private:
     void SelectBest ();
     bool ShouldTerminate ();
-    Tour& GetBestTour () const { return _pop[_numPop]; }
+    Tour &GetBestTour () const { return _pop[_numPop]; }
 private:
     const Evaluator *_eval;
     const int        _numPop;

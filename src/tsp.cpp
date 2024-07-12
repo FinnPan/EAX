@@ -4,8 +4,8 @@
 
 static const char *g_progname;
 static thu::Evaluator *g_eval;
-static int g_maxIter;
 static int g_bestCost;
+static int g_maxIter;
 static double g_avgCost;
 
 enum HeuristicKey {
@@ -25,7 +25,7 @@ static bool Run2OPT (int times);
 static bool RunEAX (bool verbose);
 static bool RunCLK (int times, bool verbose);
 
-int main(int argc, char* argv[])
+int main (int argc, char* argv[])
 {
     g_progname = argv[0];
     if (argc < 3) {
@@ -33,21 +33,24 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    int hk = HeuristicStr2Key(argv[1]);
+    const char* hkStr = argv[1];
+    const int hk = HeuristicStr2Key(hkStr);
     if (hk < 0) {
         Usage();
         return 1;
     }
 
+    const char* instFileName = argv[2];
     thu::Evaluator eval;
-    if (!eval.Init(argv[2])) {
+    if (!eval.Init(instFileName)) {
         return 1;
     }
-    g_eval = &eval;
 
-    thu::RUsage ru;
+    g_eval = &eval;
     g_bestCost = INT_MAX;
+
     bool res = false;
+    thu::RUsage ru;
     switch (hk) {
         case HK_2opt:
             res = Proc2OPT(argc, argv);
@@ -63,25 +66,26 @@ int main(int argc, char* argv[])
     };
 
     if (res) {
-        ru.Report(HeuristicKey2Str(hk));
+        ru.Report(hkStr);
         double gap = g_eval->ComputeGap(g_bestCost);
-        printf("[%s results] iter = %d; best = %d; avg = %0.3f; gap = %.3f%%\n",
-                HeuristicKey2Str(hk), g_maxIter, g_bestCost, g_avgCost, 100*gap);
+        printf("[%s results] iter = %d; avg = %0.3f; best = %d; gap = %.3f%%\n",
+                hkStr, g_maxIter, g_avgCost, g_bestCost, 100 * gap);
+        return 0;
     }
-    return 0;
+    return 1;
 }
 
 const char *HeuristicKey2Str (int k)
 {
     switch (k) {
-        case HK_2opt:
-            return "2opt";
-        case HK_eax:
-            return "eax";
-        case HK_clk:
-            return "clk";
-        default:
-            return "unknown";
+    case HK_2opt:
+        return "2opt";
+    case HK_eax:
+        return "eax";
+    case HK_clk:
+        return "clk";
+    default:
+        return "unknown";
     };
 }
 
@@ -102,16 +106,16 @@ void Usage ()
     fprintf(stderr, "%s: the command line utility of the TSP heuristics\n", g_progname);
     fprintf(stderr, "\n");
     fprintf(stderr, "usage:\n");
-    fprintf(stderr, "  %s 2opt  instance_file [-times t]\n", g_progname);
-    fprintf(stderr, "  %s eax   instance_file [-verbose]\n", g_progname);
-    fprintf(stderr, "  %s clk   instance_file [-times t] [-verbose]\n", g_progname);
+    fprintf(stderr, "  %s 2opt instance_file [-times t]\n", g_progname);
+    fprintf(stderr, "  %s eax  instance_file [-verbose]\n", g_progname);
+    fprintf(stderr, "  %s clk  instance_file [-times t] [-verbose]\n", g_progname);
 }
 
 bool Proc2OPT (int argc, char* argv[])
 {
     int times = 20;
-    for (int i = 3; i < argc; i++){
-        if(!strcmp(argv[i], "-times")){
+    for (int i = 3; i < argc; i++) {
+        if(!strcmp(argv[i], "-times")) {
             if (++i >= argc) {
                 Usage();
                 return false;
@@ -126,22 +130,20 @@ bool Proc2OPT (int argc, char* argv[])
             return false;
         }
     }
-
     return Run2OPT(times);
 }
 
 bool ProcEAX (int argc, char* argv[])
 {
     bool verbose = false;
-    for (int i = 3; i < argc; i++){
-        if (!strcmp(argv[i], "-verbose")){
+    for (int i = 3; i < argc; i++) {
+        if (!strcmp(argv[i], "-verbose")) {
             verbose = true;
         } else {
             Usage();
             return false;
         }
     }
-
     return RunEAX(verbose);
 }
 
@@ -149,8 +151,8 @@ bool ProcCLK (int argc, char* argv[])
 {
     int times = 1;
     bool verbose = false;
-        for (int i = 3; i < argc; i++){
-        if (!strcmp(argv[i], "-times")){
+    for (int i = 3; i < argc; i++) {
+        if (!strcmp(argv[i], "-times")) {
             if(++i >= argc) {
                 Usage();
                 return false;
@@ -160,23 +162,21 @@ bool ProcCLK (int argc, char* argv[])
                 fprintf(stderr, "ERROR: invalid -times\n");
                 return false;
             }
-        } else if (!strcmp(argv[i], "-verbose")){
+        } else if (!strcmp(argv[i], "-verbose")) {
             verbose = true;
         } else {
             Usage();
             return false;
         }
     }
-
     return RunCLK(times, verbose);
 }
 
 bool Run2OPT (int times)
 {
-    thu::TwoOpt opt2(g_eval);
     double totalCost = 0;
-    g_maxIter = times;
-    for (int i = 0; i < g_maxIter; i++) {
+    thu::TwoOpt opt2(g_eval);
+    for (int i = 0; i < times; i++) {
         opt2.DoIt();
         int cost = g_eval->ComputeCost(opt2.GetFlipper());
         totalCost += cost;
@@ -184,7 +184,8 @@ bool Run2OPT (int times)
             g_bestCost = cost;
         }
     }
-    g_avgCost = totalCost / g_maxIter;
+    g_maxIter = times;
+    g_avgCost = totalCost / times;
     return true;
 }
 
@@ -193,67 +194,28 @@ bool RunEAX (bool verbose)
     thu::GA_EAX eax(g_eval);
     eax.SetVerbose(verbose);
     eax.DoIt();
-    g_maxIter = eax.GetGenNum();
     g_bestCost = eax.GetBestCost();
+    g_maxIter = eax.GetGenNum();
     g_avgCost = eax.GetAvgCost();
     return true;
 }
 
 bool RunCLK (int times, bool verbose)
 {
-    const int num = g_eval->GetNumCity();
-
-    /* generate edge by k-nearest */
-    const int max_edge_num = 10;
-    int edgeNum = 0;
-    for (int ci = 0; ci < num; ++ci) {
-        int eCnt = 0;
-        for (int ni = 0; ni < g_eval->GetMaxNumNear() && eCnt < max_edge_num; ++ni) {
-            int cj = g_eval->GetNear(ci, ni);
-            if (cj > ci) {
-                eCnt++;
-                edgeNum++;
-            }
-        }
-    }
-    assert(edgeNum > 0);
-    int *edgeList = new int[2*edgeNum];
-    int listIdx = 0;
-    for (int ci = 0; ci < num; ++ci) {
-        int eCnt = 0;
-        for (int ni = 0; ni < g_eval->GetMaxNumNear() && eCnt < max_edge_num; ++ni) {
-            int cj = g_eval->GetNear(ci, ni);
-            if (cj > ci) {
-                edgeList[listIdx] = ci;
-                edgeList[listIdx+1] = cj;
-                eCnt++;
-                listIdx += 2;
-            }
-        }
-    }
-    assert(listIdx == 2*edgeNum);
-
-    srand((unsigned int)time(0));
-    auto *dat = const_cast<thu::TspLib*>(g_eval->GetTspLib());
-    int in_repeater = num;
     double totalCost = 0;
-    g_maxIter = times;
-    for (int i = 0;  i< g_maxIter; ++i) {
-        if (verbose) {
-            printf ("Starting Run %d\n", i);
-        }
+    thu::ChainedLK clk(g_eval);
+    clk.SetVerbose(verbose);
+    for (int i = 0; i < times; ++i) {
         double cost;
-        if (CClinkern_tour (num, dat, edgeNum, edgeList, 100000000,
-                in_repeater, nullptr, nullptr, &cost, !verbose)) {
-            fprintf (stderr, "CClinkern_tour failed\n");
+        if (!clk.DoIt(cost)) {
+            fprintf (stderr, "ChainedLK failed\n");
         }
         totalCost += cost;
         if (cost < g_bestCost) {
-            g_bestCost = (int)cost;
+            g_bestCost = static_cast<int>(cost);
         }
     }
-    g_avgCost = totalCost / g_maxIter;
-
-    delete[] edgeList;
+    g_maxIter = times;
+    g_avgCost = totalCost / times;
     return true;
 }

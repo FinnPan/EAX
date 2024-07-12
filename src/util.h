@@ -26,7 +26,7 @@ public:
 private:
     static TimePoint GetTimeOfDay () { return Clock::now(); }
     static double GetTimeOfCPU ();
-    static void GetProcessMem (double& physMem, double& virtMem);
+    static void GetProcessMem (double &physMem, double &virtMem);
 private:
     TimePoint _dayTime0;
     double    _cpuTime0;
@@ -122,7 +122,7 @@ public:
     int ComputeCost (const int *arr) const;
     int ComputeCost (const Flipper *f) const;
     const int *MakeRand () const;
-    RandEngine& GetRandEngine () const { return *_randEng; }
+    RandEngine &GetRandEngine () const { return *_randEng; }
     RandType GetRand () const { return GetRandEngine()(); }
     int GetMaxNumNear () const { return _maxNumNear; }
     /* return jth-nearest neighbor of i

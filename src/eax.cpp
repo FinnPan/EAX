@@ -98,7 +98,7 @@ bool GA_EAX::ShouldTerminate ()
     return false;
 }
 
-GA_EAX::Tour::Iterator::Iterator (const Tour& pa, int start)
+GA_EAX::Tour::Iterator::Iterator (const Tour &pa, int start)
 {
     _pa = &pa;
     _start = start;
@@ -120,12 +120,12 @@ void GA_EAX::Tour::Iterator::operator++ (int)
 }
 
 GA_EAX::Tour::Tour ()
-    : _n(0), _cost(std::numeric_limits<int>::max()), _link(nullptr)
+    : _numCity(0), _cost(std::numeric_limits<int>::max()), _link(nullptr)
 {}
 
 GA_EAX::Tour::~Tour ()
 {
-    for (int i = 0; i < _n; ++i) {
+    for (int i = 0; i < _numCity; ++i) {
         delete[] _link[i];
     }
     delete[] _link;
@@ -133,18 +133,18 @@ GA_EAX::Tour::~Tour ()
 
 void GA_EAX::Tour::Init (int n)
 {
-    _n = n;
+    _numCity = n;
     _link = new int*[n];
     for (int i = 0; i < n; ++i) {
         _link[i] = new int[2];
     }
 }
 
-GA_EAX::Tour& GA_EAX::Tour::operator= (const Tour& rhs)
+GA_EAX::Tour &GA_EAX::Tour::operator= (const Tour &rhs)
 {
     if (this != &rhs) {
-        _n = rhs._n;
-        for (int i = 0; i < _n; ++i) {
+        _numCity = rhs._numCity;
+        for (int i = 0; i < _numCity; ++i) {
             for (int j = 0; j < 2; ++j) {
                 _link[i][j] = rhs._link[i][j];
             }
@@ -157,14 +157,14 @@ GA_EAX::Tour& GA_EAX::Tour::operator= (const Tour& rhs)
 void GA_EAX::Tour::ComputeCost (const Evaluator *e)
 {
     _cost = 0;
-    for (int i = 0; i < _n; ++i) {
+    for (int i = 0; i < _numCity; ++i) {
         _cost += e->GetCost(i, _link[i][1]);
     }
 }
 
 void GA_EAX::Tour::FromArray (const Evaluator *e, const int *arr)
 {
-    const int n = _n;
+    const int n = _numCity;
     for (int i = 1; i < n - 1; ++i) {
         _link[arr[i]][0] = arr[i - 1];
         _link[arr[i]][1] = arr[i + 1];
@@ -180,14 +180,14 @@ void GA_EAX::Tour::FromArray (const Evaluator *e, const int *arr)
 
 void GA_EAX::Tour::FromFlipper (const Evaluator *e, const Flipper *f)
 {
-    for (int i = 0; i < _n; ++i) {
+    for (int i = 0; i < _numCity; ++i) {
         _link[i][0] = f->Prev(i);
         _link[i][1] = f->Next(i);
     }
     ComputeCost(e);
 }
 
-void GA_EAX::EdgeTriple::Reconnect (Tour& pa) const
+void GA_EAX::EdgeTriple::Reconnect (Tour &pa) const
 {
     if (pa.GetPrev(_r1) == _r2) {
         pa.SetPrev(_r1, _b1);
@@ -224,7 +224,7 @@ void GA_EAX::ABcycle::Iterator::Begin (const ABcycle *abc, bool reverse)
     }
 }
 
-bool GA_EAX::ABcycle::Iterator::End (EdgeTriple& et) const
+bool GA_EAX::ABcycle::Iterator::End (EdgeTriple &et) const
 {
     if (_i < (_len / 2)) {
         int i = _start + _step * _i;
@@ -244,7 +244,7 @@ GA_EAX::ABcycle::ABcycle (int n) :
     _cyc = new int[_capacity];
 }
 
-int GA_EAX::ABcycle::Apply (bool reverse, Tour& pa) const
+int GA_EAX::ABcycle::Apply (bool reverse, Tour &pa) const
 {
     Iterator iter;
     EdgeTriple et;
@@ -255,9 +255,9 @@ int GA_EAX::ABcycle::Apply (bool reverse, Tour& pa) const
 }
 
 GA_EAX::ABcycleMgr::ABcycleMgr (const Evaluator *e) :
-    _eval(e), _numCity(e->GetNumCity()), _maxNumABcycle(2000)
+    _eval(e), _maxNumABcycle(2000)
 {
-    const int n = _numCity;
+    const int n = _eval->GetNumCity();
 
     _ABcycleList = new ABcycle*[_maxNumABcycle];
     for (int j = 0; j < _maxNumABcycle; ++j) {
@@ -298,12 +298,13 @@ void GA_EAX::ABcycleMgr::QuadEdge::Init (int a0, int a1, int b0, int b1)
     _remain = 2;
 }
 
-void GA_EAX::ABcycleMgr::Build (const Tour& pa, const Tour& pb, int numKid)
+void GA_EAX::ABcycleMgr::Build (const Tour &pa, const Tour &pb, int numKid)
 {
+    const int n = _eval->GetNumCity();
     _numABcycle = 0;
     _numCycRank2 = 0;
     _numCycRank1 = 0;
-    for (int j = 0; j < _numCity; ++j) {
+    for (int j = 0; j < n; ++j) {
         _quadEdge[j].Init(pa.GetPrev(j), pa.GetNext(j), pb.GetPrev(j), pb.GetNext(j));
         _cycRank2City[_numCycRank2] = j;
         _cycRank2Posi[j] = _numCycRank2;
@@ -425,7 +426,7 @@ END:
     std::shuffle(_ABcycleList, _ABcycleList + _numABcycle, _eval->GetRandEngine());
 }
 
-bool GA_EAX::ABcycleMgr::Build_0 (const int numStart, const int numKid, int& currIdx)
+bool GA_EAX::ABcycleMgr::Build_0 (const int numStart, const int numKid, int &currIdx)
 {
     const int start = _cycCity[currIdx];
     int len = 0, cntStart = 0, curr = start;
@@ -488,11 +489,11 @@ bool GA_EAX::ABcycleMgr::Build_0 (const int numStart, const int numKid, int& cur
 }
 
 GA_EAX::Cross::Cross (const Evaluator *e)
-    : _eval(e), _numCity(e->GetNumCity()), _maxNumNear(10)
+    : _eval(e), _maxNumNear(10)
 {
     assert(_maxNumNear <= _eval->GetMaxNumNear());
 
-    const int n = _numCity;
+    const int n = _eval->GetNumCity();
 
     _city = new int[n];
     _posi = new int[n];
@@ -518,13 +519,15 @@ GA_EAX::Cross::~Cross ()
     delete[] _cuCity;
 }
 
-void GA_EAX::Cross::DoIt (Tour& pa, Tour& pb, int numKid)
+void GA_EAX::Cross::DoIt (Tour &pa, Tour &pb, int numKid)
 {
+    const int n = _eval->GetNumCity();
+
     /* init _city and _posi */
     Tour::Iterator iter(pa, 0);
     do {
         iter++;
-        if (iter.GetCnt() >= _numCity) {
+        if (iter.GetCnt() >= n) {
             break;
         }
         int posi = iter.GetCnt();
@@ -580,7 +583,7 @@ void GA_EAX::Cross::MakeSegment (int idx)
     _segments.clear();
 
     const ABcycle *abc = _abcMgr->GetCycle(idx);
-    const int n = _numCity;
+    const int n = _eval->GetNumCity();
     ABcycle::Iterator iter;
     EdgeTriple et;
     int b1, r1, r2, b2;
@@ -626,7 +629,7 @@ void GA_EAX::Cross::MakeSegment (int idx)
     }
 
     std::sort(_segments.begin(), _segments.end(),
-        [](const Segment& l, const Segment& r) {
+        [](const Segment &l, const Segment &r) {
             return l.begPosi < r.begPosi;
         }
     );
@@ -651,7 +654,7 @@ void GA_EAX::Cross::MakeUnit ()
     int p_st, p1, p2, p_pre, p_next;
     while (1) {
         bool found = false;
-        for (const auto& seg : _segments) {
+        for (const auto &seg : _segments) {
             if (seg.unitId == -1) {
                 p_st = seg.begPosi;
                 p1 = p_st;
@@ -687,7 +690,7 @@ void GA_EAX::Cross::MakeUnit ()
     }
 
     int unitId = -1, segId = -1;
-    for (auto& seg : _segments) {
+    for (auto &seg : _segments) {
         if (seg.unitId != unitId) {
             ++segId;
             _segments[segId] = seg;
@@ -701,16 +704,17 @@ void GA_EAX::Cross::MakeUnit ()
     for (int s = 0; s < _numUnit; ++s) {
         _numEleInUnit[s] = 0;
     }
-    for (const auto& seg : _segments) {
+    for (const auto &seg : _segments) {
         unitId = seg.unitId;
         _numEleInUnit[unitId] += seg.endPosi - seg.begPosi + 1;
     }
 }
 
-int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
+int GA_EAX::Cross::MakeCompleteTour (Tour &pa)
 {
     _modiEdges.clear();
 
+    const int n = _eval->GetNumCity();
     int gain = 0;
 
     while (_numUnit != 1) {
@@ -724,7 +728,7 @@ int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
         }
 
         int start = -1;
-        for (const auto& seg : _segments) {
+        for (const auto &seg : _segments) {
             if (seg.unitId == cu) {
                 int posi = seg.begPosi;
                 start = _city[posi];
@@ -752,8 +756,8 @@ int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
     RESTART:
         for (int s = 1; s <= numEleInCU; ++s) {
             int a = _cuCity[s % numEleInCU];
-            for (int n = 0; n < numNear; ++n) {
-                int c = _eval->GetNear(a, n);
+            for (int ni = 0; ni < numNear; ++ni) {
+                int c = _eval->GetNear(a, ni);
                 if (_cuFlag[c] == 0) {
                     for (int j1 = 0; j1 < 2; ++j1) {
                         int b = _cuCity[(s - 1 + 2 * j1) % numEleInCU];
@@ -790,7 +794,7 @@ int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
             int r = _eval->GetRand() % (numEleInCU - 1);
             int a = _cuCity[r];
             int b = _cuCity[r + 1];
-            for (int j = 0; j < _numCity; ++j) {
+            for (int j = 0; j < n; ++j) {
                 if (_cuFlag[j] == 0) {
                     aa = a;
                     bb = b;
@@ -809,7 +813,7 @@ int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
         gain += maxDiff;
 
         int selectUnit = -1;
-        for (const auto& seg : _segments) {
+        for (const auto &seg : _segments) {
             if (seg.begPosi <= _posi[a1] && _posi[a1] <= seg.endPosi) {
                 selectUnit = seg.unitId;
                 break;
@@ -817,14 +821,14 @@ int GA_EAX::Cross::MakeCompleteTour (Tour& pa)
         }
         assert(selectUnit != -1);
 
-        for (auto& seg : _segments) {
+        for (auto &seg : _segments) {
             if (seg.unitId == selectUnit) {
                 seg.unitId = cu;
             }
         }
         _numEleInUnit[cu] += _numEleInUnit[selectUnit];
 
-        for (auto& seg : _segments) {
+        for (auto &seg : _segments) {
             if (seg.unitId == _numUnit - 1) {
                 seg.unitId = selectUnit;
             }

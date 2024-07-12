@@ -64,7 +64,7 @@ double RUsage::GetTimeOfCPU ()
     return cpu;
 }
 
-void RUsage::GetProcessMem (double& physMem, double& virtMem)
+void RUsage::GetProcessMem (double &physMem, double &virtMem)
 {
     physMem = 0.0;
     virtMem = 0.0;
