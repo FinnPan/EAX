@@ -232,17 +232,15 @@ CLEAN_UP:
     return true;
 }
 
-Flipper::Flipper (int count)
+Flipper::Flipper (int count) : _numCity(count)
 {
     Init_0();
-    Init_1(count);
 }
 
-Flipper::Flipper (int count, const int *cyc)
+Flipper::Flipper (int count, const int *cyc) : _numCity(count)
 {
     Init_0();
-    Init_1(count);
-    SetCycle(count, cyc);
+    SetCycle(cyc);
 }
 
 Flipper::~Flipper ()
@@ -253,65 +251,63 @@ Flipper::~Flipper ()
 
 void Flipper::Init_0 ()
 {
-    _parents = nullptr;
-    _children = nullptr;
-    _reversed = 0;
-    _groupSize = 0;
-    _numSegments = 0;
-    _splitCutoff = 0;
-}
+    const int n = _numCity;
 
-void Flipper::Init_1 (int count)
-{
     constexpr double GROUP_SIZE_FACTOR = 0.50;
     constexpr double SEGMENT_SPLIT_CUTOFF = 0.30;
 
-    _reversed = 0;
-    _groupSize = (int)(sqrt(count) * GROUP_SIZE_FACTOR);
-    _numSegments =  (count + _groupSize - 1) / _groupSize;
+    _groupSize = (int)(sqrt(n) * GROUP_SIZE_FACTOR);
+    _numSegments =  (n + _groupSize - 1) / _groupSize;
     _splitCutoff = (int)(_groupSize * SEGMENT_SPLIT_CUTOFF);
-
+    _reversed = 0;
     _parents = new ParentNode[_numSegments];
-    _children = new ChildNode[count];
+    _children = new ChildNode[n];
+}
 
-    int remain = count;
-    int n = 0;
+void Flipper::Init_1 ()
+{
+    _reversed = 0;
+
+    int remain = _numCity;
+    int cnt = 0;
     while (remain >= 2 * _groupSize) {
         int s = _groupSize;
-        _parents[n++].size = s;
+        _parents[cnt++].size = s;
         remain -= s;
     }
     if (remain > _groupSize) {
         int s = remain / 2;
-        _parents[n++].size = s;
+        _parents[cnt++].size = s;
         remain -= s;
     }
-    _parents[n++].size = remain;
+    _parents[cnt++].size = remain;
 
-    assert(n == _numSegments);
+    assert(cnt == _numSegments);
 }
 
-void Flipper::SetCycle (int count, const int *cyc)
+void Flipper::SetCycle (const int *cyc)
 {
+    Init_1();
+
     ChildNode *c, *c0;
     ParentNode *p;
 
-    c0 = _children + cyc[count - 1];
-    for (int i = 0, n = 0; i < _numSegments; i++) {
+    c0 = _children + cyc[_numCity - 1];
+    for (int i = 0, cnt = 0; i < _numSegments; i++) {
         p = _parents + i;
         p->id = i;
         p->rev = 0;
-        p->ends[0] = _children + cyc[n];
+        p->ends[0] = _children + cyc[cnt];
         c = nullptr;
         for (int j = 0; j < p->size; j++) {
-            c = _children + cyc[n];
+            c = _children + cyc[cnt];
             c->parent = p;
-            c->id = n;
-            c->name = cyc[n];
+            c->id = cnt;
+            c->name = cyc[cnt];
             c->adj[0] = c0;
             c0->adj[1] = c;
             c0 = c;
-            n++;
+            cnt++;
         }
         p->ends[1] = c;
         p->adj[0] = p - 1;
@@ -325,9 +321,9 @@ void Flipper::GetCycle (int *cyc) const
 {
     ChildNode *c0 = _children;
     ChildNode *c = c0;
-    int n = 0;
+    int cnt = 0;
     do {
-        cyc[n++] = c->name;
+        cyc[cnt++] = c->name;
         c = _children + Next(c->name);
     } while(c != c0);
 }
@@ -789,9 +785,8 @@ double Evaluator::ComputeGap (int cost) const
 
 void TwoOpt::DoIt ()
 {
-    const int n = _eval->GetNumCity();
     const int *arr = _eval->MakeRand();
-    _flipper.SetCycle(n, arr);
+    _flipper.SetCycle(arr);
     TwoExchange();
 }
 

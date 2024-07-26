@@ -79,7 +79,7 @@ public:
     explicit Flipper (int count);
     explicit Flipper (int count, const int *cyc);
     ~Flipper ();
-    void SetCycle (int count, const int *cyc);
+    void SetCycle (const int *cyc);
     void GetCycle (int *cyc) const;
     /* returns the successor of x in the current cycle */
     int Next (int x) const;
@@ -91,7 +91,7 @@ public:
     void Flip (int x, int y);
 private:
     void Init_0 ();
-    void Init_1 (int count);
+    void Init_1 ();
     void Flip_0 (ChildNode *xc,  ChildNode *yc);
     void Reverse () { _reversed ^= 1; }
     bool IsBackward (ParentNode *p) const { return (_reversed^(p->rev)); }
@@ -103,12 +103,13 @@ private:
     void SegmentSplit (ParentNode *p, ChildNode *aPrev, ChildNode *a,
             int left_or_right) const;
 private:
-    ParentNode *_parents;
-    ChildNode  *_children;
-    int         _reversed;
+    int         _numCity;
     int         _groupSize;
     int         _numSegments;
     int         _splitCutoff;
+    int         _reversed;
+    ParentNode *_parents;
+    ChildNode  *_children;
 };
 
 /* Utilities: cost, random, neighbor-lists. */
